@@ -6,7 +6,7 @@ I have brought major changes to the original tutorial, even adding a few new cha
 
 ## TOC
 
-- Front Controller
+- [Front Controller](./front-controller)
 - Composer
 - Error Handling
 - Routing
@@ -18,3 +18,9 @@ I have brought major changes to the original tutorial, even adding a few new cha
 - Markdown Parsing
 - Dynamic Pages
 - Frontend
+
+## Notes
+
+- This tutorial won't teach you PHP. It teaches you how to glue composer packages to create web apps.
+- Don't just read. Code alongside the lessons. [Final output for this basic tutorial is here](https://github.com/Component-Oriented-PHP/basic-application).
+- You can start [discussions here](https://github.com/orgs/Component-Oriented-PHP/discussions).
