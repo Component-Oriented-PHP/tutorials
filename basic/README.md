@@ -6,10 +6,11 @@ I have brought major changes to the original tutorial, even adding a few new cha
 
 ## TOC
 
-- [Front Controller](./front-controller.md)
+- [Front Controller](./1-front-controller.md)
+- Routing 1: Vanilla Router
 - Composer
+- Routing 2: Installing a Routing Package
 - Error Handling
-- Routing
 - Dispatching to a Class
 - Inversion of Control, Service Locator and Dependency Injection
 - Helpers

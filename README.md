@@ -2,6 +2,10 @@
 
 _TLDR: This tutorial teaches intermediate to advanced PHP developers how to build applications using standalone Composer packages instead of full frameworks. Learn component-oriented architecture by assembling existing libraries into cohesive applications. Two difficulty levels available: Basic (foundation concepts) and Advanced (complex implementations). Requires solid PHP fundamentals and OOP knowledge._
 
+You can read the tutorials in github repo directly or through:
+
+- <https://component-oriented-php.github.io/tutorials/>
+
 ---
 
 Alright, let's get one thing straight: if you're brand new to PHP, still figuring out what a `<?php` tag does, or if "Object-Oriented Programming" sounds like a cult you accidentally joined, this tutorial series might just chew you up and spit you out. (No hard feelings, we all start somewhere. Go get your PHP basics down, then come back. We'll have tea... or something stronger.)

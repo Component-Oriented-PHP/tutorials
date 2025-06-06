@@ -59,4 +59,4 @@ While most modern frameworks like Symfony and Laravel use type hinting in their 
 
 Remember that the `declare` statement must be the very first statement in the file (after the opening `<?php` tag) to take effect for the entire file. This is why we place it at the top of our front controller.
 
-The next lesson is on [Composer](./composer.md).
+The next lesson is on [Routing](./2-vanilla-router.md).
