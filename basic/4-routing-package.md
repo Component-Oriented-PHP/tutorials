@@ -160,7 +160,7 @@ $request = \Laminas\Diactoros\ServerRequestFactory::fromGlobals(
 );
 ```
 
-This is a very important step in modern PHP development. Instead of working directly with messy and insecure global variables like `$_GET` and `$_SERVER`, we use a library (here, `laminas/laminas-diactoros`; but there are packages like `symfony/http-foundation`, or `nette/http1 for the same; I am more used to laminas diactoros, so I used it here) to bundle all of that information into a clean, standardized Request object.
+This is a very important step in modern PHP development. Instead of working directly with messy and insecure global variables like `$_GET` and `$_SERVER`, we use a library (here, `laminas/laminas-diactoros`; but there are packages like `symfony/http-foundation`, or `nette/http` for the same; I am more used to laminas diactoros, so I used it here) to bundle all of that information into a clean, standardized Request object.
 
 - **Why, you ask?** This object is predictable and easy to work with. Any modern PHP component, not just our router, can understand its structure. This is part of a standard called PSR-7.
 - `ServerRequestFactory::fromGlobals(...)` is a handy helper that does the dirty work of reading all those global variables and creating the `$request` object for us that we can use in callable functions/controllers/handlers.
@@ -217,7 +217,7 @@ And that's it! We've successfully connected an incoming request to a specific pi
 
 Anyway, before going on to the next chapter (error handling), there is ONE MAJOR IMPROVEMENT that should be made to the front controller.
 
-See how we are passing $request and $route both to $handler and then passing both in callble function is blog map? What if we could pass only $request and not $route? Well, if we were using league/route package, it could have done that for us. But we will do it manually here.
+See how we are passing `$request` and `$route` both to `$handler` and then passing both in callable function is blog map? What if we could pass only `$request` and not `$route`? Well, if we were using `league/route` package, it could have done that for us. But we will do it manually here.
 
 Modify the front controller.
 
@@ -310,7 +310,9 @@ http_response_code($response->getStatusCode());
 echo $response->getBody();
 ```
 
-The original code could do the job, but this improvement is a lot better. It may be a lot to handle right now, but I will try to explain the changes clearly including why we are using echo if routes are not found but HtmlResponse class for sending the response in case of route found.
+Don't be overwhelmed.
+
+The original code could do the job, but this improvement is a lot better. It may be a lot to handle right now, but I will try to explain the changes as clearly as possible.
 
 The new code I added introduces two main concepts that are central to modern frameworks/apps:
 
@@ -366,7 +368,7 @@ $map->get('blog_slug', '/blog/{slug}', function ($request) {
 });
 ```
 
-So, what's going on while adding route attributes to request obkect?
+So, what's going on while adding route attributes to request object?
 
 1. After the router finds a match, the matched route object (`$route`) contains any dynamic parameters from the URL. In the case of `/blog/my-first-post`, `$route->attributes` would be an array like `['slug' => 'my-first-post']`.
 2. The foreach loop iterates through these attributes.
@@ -412,7 +414,7 @@ Aura router is smart (so are other routing packages). When it fails to find a ma
 - **405 METHOD NOT ALLOWED**: This is a more specific error. Imagine you have a route defined only for POST requests at `/submit-form`. If a user tries to access `/submit-form` using a GET request (by typing it in their browser's address bar), the router knows the path exists, but the method is wrong. This is a 405 error.
 - **406 NOT ACCEPTABLE**: This is for more advanced content negotiation. Imagine our API can only produce JSON (application/json), but the client's request says it only accepts XML (Accept: application/xml). The router can see this mismatch and return a 406.
 
-Notice that we are setting $response variable to the HtmlResponse object corresponding to the failed route type.
+Notice that we are setting `$response` variable to the `HtmlResponse` object corresponding to the failed route type.
 
 Next, I added a new part in the code:
 
