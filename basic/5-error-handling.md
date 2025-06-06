@@ -37,3 +37,7 @@ Warning: require_once(I:\SOFTWARE\cophp\basic-application\public/../vendor/autol
 ```
 
 This clearly states that the file we are requiring does not exist. Fix the typo and re-check, the error should be gone now.
+
+This is a good enough. In development, I want to see all the errors, warnings, and notices so I can fix them. But... TBH, that default error message is pretty ugly and not as helpful as the ones you may have seen in Laravel or Symfony or CodeIgniter or any other framework. We can do much, much better.
+
+To achieve a similar pretty error messages, we can use some composer packages. I have used `filp/whoops`, `tracy/tracy`, and `symfony/error-handler` a lot. But we will use `filp/whoops` in this tutorial and move on to `tracy/tracy` in the advanced tutorial. But feel free to use whatever you like.
