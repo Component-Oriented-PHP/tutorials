@@ -26,14 +26,14 @@ Run `php -S localhost:8080 -t public` in CLI in project root.
 
 Now open `http://localhost:8080` in your browser. You should see the message "This tuts rocks!"
 
-You should be aware of what `php -S localhost:8000 -t public` does. It starts a development web server (comes with PHP) on port 8000 and points to the `public` dir.
+You should be aware of what `php -S localhost:8080 -t public` does. It starts a development web server (comes with PHP) on port 8080 and points to the `public` dir.
 
 Anyway, in the index.php, we have added `declare(strict_types=1);`. In case you don't know, this is a PHP directive that enables strict type checking for scalar type declarations in that file. When enabled, PHP will throw a TypeError if you pass a value of the wrong type to a function parameter or return statement that has a type declaration. We will be adding this directive to all classes (even helpers) to ensure consistency throughout our code.
 
 For example, without strict types:
 
 ```php
-function addNumbers(int $a, int $b): int {
+function addNumbers(int $a, int $b): int { // we want integer
     return $a + $b;
 }
 
@@ -45,15 +45,17 @@ With strict types enabled:
 ```php
 declare(strict_types=1);
 
-function addNumbers(int $a, int $b): int {
+function addNumbers(int $a, int $b): int { // we want integer
     return $a + $b;
 }
 
-echo addNumbers("5", "10"); // Fatal error: TypeError
-echo addNumbers(5, 10);     // Works, outputs 15
+echo addNumbers("5", "10"); // Fatal error: TypeError; we wanted integers, but got strings
+echo addNumbers(5, 10);     // Works, outputs 15; we wanted integers, we got integers
 ```
 
-This helps catch type-related bugs early and makes your code more predictable. It's considered a best practice in modern PHP development, especially when building robust applications. Many frameworks including Symfony and Laravel don't use type declations (Mezzio does), but I prefer to keep strict types in my codebase. Your choice. Use it or not (I recommend you use it though).
+This helps catch type-related bugs early and makes your code more predictable. It's considered a best practice in modern PHP development, especially when building robust applications.
+
+While most modern frameworks like Symfony and Laravel use type hinting in their classes and functions, they don't always enforce strictness for scalar types with `declare(strict_types=1)` (like Mezzio does). I personally prefer to enable strict types everywhere in my codebase. It's your choice, but I highly recommend you use it! This practice is also a key part of PSR-12 (the Extended Coding Style guide), which sets the standard for modern PHP code.
 
 Remember that the `declare` statement must be the very first statement in the file (after the opening `<?php` tag) to take effect for the entire file. This is why we place it at the top of our front controller.
 
