@@ -1,6 +1,9 @@
 ---
-title: Creating a Vanilla PHP Router
+previous: 1-front-controller
+next: 3-composer
 ---
+
+# Creating a Vanilla PHP Router
 
 Now that you have your front controller in place, we are going to create a simple vanilla routing system to return different responses on different routes (/about, /contact, etc).
 
@@ -49,7 +52,7 @@ If you refresh the browser tab, you should see the same results as before (Notic
 
 BUT in real web applications, such a simple router is practically useless due to the sheer amount of routes and necessity for dynamic routing like `/blog/{slug}` or `/user/{username}`.
 
-But now, image handling this:
+Imagine handling this:
 
 ```php
 // Imagine handling dozens of routes with match:

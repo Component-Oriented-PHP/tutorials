@@ -1,6 +1,8 @@
 ---
-title: Front Controller
+next: 2-vanilla-router
 ---
+
+# Front Controller
 
 If you have used any modern PHP framework, you already know that they place a file `index.php` inside `public` dir and the web server is configured to point to the `public` dir.
 
