@@ -80,3 +80,66 @@ However, the router has not yet dispatched a request. What does that mean? It si
 ## Dispatching a Request
 
 In simplest possible words, dispatching is the process where the router takes the current incoming request (e.g., the URL path `/about` and the `GET` method) and tries to find a matching route in the map we defined. If it finds a match, it "dispatches" to the handler we provided (i.e., our function() {...} which handles what is returned).
+
+So, how do we do this?
+
+Well, to begin with, you need to read the documentation for respective routing package you're using. Aura has a great documentation. Let's continue.
+
+Run `composer require laminas/laminas-diactoros` in root and then edit the `public/index.php` file (I will explain below):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$routerContainer = new \Aura\Router\RouterContainer();
+
+$request = \Laminas\Diactoros\ServerRequestFactory::fromGlobals(
+    $_SERVER,
+    $_GET,
+    $_POST,
+    $_COOKIE,
+    $_FILES
+);
+
+$map = $routerContainer->getMap();
+
+$map->get('home', '/', function () {
+    echo 'This tuts rocks!!!';
+});
+
+$map->get('about', '/about', function () {
+    echo 'This is the about page!!!';
+});
+
+$map->get('contact', '/contact', function () {
+    echo 'This is the contact page!!!';
+});
+
+$map->get('blog_slug', '/blog/{slug}', function ($request, $route) {
+    // Get the slug from the route attributes, not the request
+    $slug = (string) $route->attributes['slug'];
+    echo 'This is the blog page for ' . $slug;
+});
+
+// match the request
+$matcher = $routerContainer->getMatcher();
+$route = $matcher->match($request);
+
+// if no route registered for current path
+if (!$route) {
+    http_response_code(404);
+    echo '404';
+    exit;
+}
+
+// dispatch the route
+$handler = $route->handler; // get the callable function we defined for each route
+$handler($request, $route); // run the function and pass the request object to it for further usage in the function
+```
+
+Go and check the browser for all the defined routes and you SHOULD be able to see the defined responses.
+
+So, what's hapenning here?
