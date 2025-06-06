@@ -5,4 +5,78 @@ next: 5-error-handling
 
 # Routing 2: Installing a Routing Package
 
-...
+Head over to [packagist](https://packagist.org) and pay attention at the top center. You will see an important thing...
+
+"Composer v1 support is coming to an end"... Oh... sorry... not this one...
+
+You will see the search bar. Search for "Routing". You will see hundreds of routing packages that we can use in our project. But I will list only the ones I have personally used in my projects.
+
+- [symfony/routing](https://packagist.org/packages/symfony/routing): the definition of perfection; It comes with attributes based routing that you use in Symfony framework like (#[Route('/')]) although you can use the old way to place routes in a single file as well.
+- [nikic/fast-route](https://packagist.org/packages/nikic/fast-route): this is the one Patrick Louys used in his original No Framework Tutorial. I love this as it is quite fast.
+- [league/route](https://packagist.org/packages/league/route): THIS IS MY PERSONAL FAVORITE routing package as it comes with an inbuilt-middleware support, PSR compliance, support for Dependency Injection. In fact, it is built on top of nikic/fast-route and is like a wrapper around it.
+- [pecee/simple-router](https://github.com/skipperbent/simple-php-router): If you use Laravel, this is the one you'd love the most. It comes with its own Request and Response classes, middleware support, and more.
+- [aura/router](https://packagist.org/packages/aura/router): We will use this one for this tutorial.
+- [nette/routing](https://packagist.org/packages/nette/routing): Haven't used it outside Nette Framework so you may need to check its docs to learn more about it. (or just move on to the router I use)
+- [aplus/routing](https://packagist.org/packages/aplus/routing): used it only twice but included it to showoff my experience with routing packages 😏
+
+But I suggest you use the one you like the most and that actually serves the purpose of your project. I mostly use league/route and pecee/simple-router.
+
+In this tutorial (basic) we will use Aura Router and then move on to use League Route in advanced tutorial. Why? Because I said so. But you're free to use whatever router you want. You need to read their docs for proper direction.
+
+Head over to your project root and run `composer require aura/router`. Wait for it to finish and open composer.json.
+
+> NOTE: Here, aura is the vendor name and router is the package name. A vendor can have multiple packages like aura/session or aura/di.
+
+You should see this:
+
+```json
+{
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "require": {
+        "aura/router": "^3.4"
+    }
+}
+```
+
+As you can see, composer will add the routing package to your `require` section. It installed the package and added vendor dir and composer.lock files as we discussed in last lesson. Composer automatically installed the latest version of the package. You can also install an explicit version using `composer require vendor-name/package-name:version`.
+
+Now, we need to update the front controller to use this router instead of our vanilla one.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$routerContainer = new \Aura\Router\RouterContainer();
+
+$map = $routerContainer->getMap();
+
+$map->get('home', '/', function () {
+    echo 'This tuts rocks!!!';
+});
+
+$map->get('about', '/about', function () {
+    echo 'This is the about page';
+});
+
+$map->get('contact', '/contact', function () {
+    echo 'This is the contact page';
+});
+```
+
+I removed the vanilla routing code and added the routing code from the package. Here, we included the composer's autoload.php file to ensure we can use the installed packages in our app (here, aura/router). Then we instantiated the router and added the routes to it. Now, let's get our app up and running.
+
+When you head over to the browser, you will see an empty page. No response is there when you to go `http://localhost:8080`. What's going on?
+
+It so happens that we have only defined the routes. We've created a map telling the router that if a request for `/` comes in, it should execute our function and return a response (e.g. "This tuts rocks!!").
+
+However, the router has not yet dispatched a request. What does that mean? It simply means that the router has not yet been told to actually look at the current request and match it against the map. That process is called dispatching.
+
+## Dispatching a Request
+
+In simplest possible words, dispatching is the process where the router takes the current incoming request (e.g., the URL path `/about` and the `GET` method) and tries to find a matching route in the map we defined. If it finds a match, it "dispatches" to the handler we provided (i.e., our function() {...} which handles what is returned).
