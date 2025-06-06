@@ -119,7 +119,7 @@ $map->get('contact', '/contact', function () {
 });
 
 $map->get('blog_slug', '/blog/{slug}', function ($request, $route) {
-    // Get the slug from the route attributes, not the request
+    // Get the slug from the route attributes
     $slug = (string) $route->attributes['slug'];
     echo 'This is the blog page for ' . $slug;
 });
@@ -143,3 +143,78 @@ $handler($request, $route); // run the function and pass the request object to i
 Go and check the browser for all the defined routes and you SHOULD be able to see the defined responses.
 
 So, what's hapenning here?
+
+In short, we are creating a standardized representation of the incoming web request and then asking the router to match it against our defined maps. If it finds a match for the URI, it executes the corresponding function we wrote. If not, it shows 404 error we defined.
+
+Focus on this:
+
+```php
+$request = \Laminas\Diactoros\ServerRequestFactory::fromGlobals(
+    $_SERVER,
+    $_GET,
+    $_POST,
+    $_COOKIE,
+    $_FILES
+);
+```
+
+This is a very important step in modern PHP development. Instead of working directly with messy and insecure global variables like `$_GET` and `$_SERVER`, we use a library (here, `laminas/laminas-diactoros`; but there are packages like `symfony/http-foundation`, or `nette/http1 for the same; I am more used to laminas diactoros, so I used it here) to bundle all of that information into a clean, standardized Request object.
+
+- **Why, you ask?** This object is predictable and easy to work with. Any modern PHP component, not just our router, can understand its structure. This is part of a standard called PSR-7.
+- `ServerRequestFactory::fromGlobals(...)` is a handy helper that does the dirty work of reading all those global variables and creating the `$request` object for us that we can use in callable functions/controllers/handlers.
+
+Let's shift our focus to a dynamic route.
+
+```php
+$map->get('blog_slug', '/blog/{slug}', function ($request, $route) {
+    // Get the slug from the route attributes
+    $slug = (string) $route->attributes['slug'];
+    echo 'This is the blog page for ' . $slug;
+});
+```
+
+The cool part here is the `/{slug}`. This is a placeholder. It tells the router to match any URL that starts with `/blog/` followed by some value. That value will be captured and named `slug`. This is how you create dynamic pages, like `yourhotsite.com/blog/my-first-post` or `yoursexysite.com/posts/learning-php` instead of using query parameters like `somehub.com/video.php?id=1234`.
+
+Now, let's check the matching process for the incoming request.
+
+```php
+// match the request
+$matcher = $routerContainer->getMatcher();
+$route = $matcher->match($request);
+```
+
+This is the heart of the dispatching process!
+
+- `$routerContainer->getMatcher()`: We get the "Matcher" service from our router. Its only job is to find a match for the incoming request.
+- `$matcher->match($request)`: We pass our shiny new `$request` object to the matcher. It looks at the request's URL path (e.g., `/about` or `/blog/my-first-post`) and HTTP method (e.g., `GET`) and compares it against all the routes we have defined in the `$map`.
+- If it finds a match, it returns a `$route` object containing all the information about the matched route (including its name, path, and handler/callable-function we defined in the map). If no match is found, it returns false or null (and this false/null value is used to return a 404 error).
+
+```php
+// if no route registered for current path
+if (!$route) {
+    http_response_code(404);
+    echo '404';
+    exit;
+}
+```
+
+Self explanatory this 404 part is. FOCUS BELOW INSTEAD.
+
+```php
+// dispatch the route
+$handler = $route->handler; // get the callable function we defined
+$handler($request, $route); // run the function
+```
+
+This is the grand finale! If a route was found:
+
+- `$handler = $route->handler;`: We get the handler that you defined for that specific route. In our case, this is the callable function() {...}.
+- `$handler($request, $route);`: We execute that function! The router is smart enough to pass the $request object and the $route object into your handler function. This is why you can access the slug inside the blog handler using `$route->attributes['slug']`. It gives your route's code access to all the information about the incoming request and the matched route.
+
+And that's it! We've successfully connected an incoming request to a specific piece of your code. Awesome job! Go get me some tea now.
+
+Anyway, before going on to the next chapter (error handling), there is ONE MINOR IMPROVEMENT (not necessary, but this is my tutorial... I will do whatever the hell I want) that can be made to the front controller.
+
+See how we are passing $request and $route both to $handler and then passing both in callble function is blog map? What if we could pass only $request and not $route? Well, if we were using league/route package, it could have done that for us. But we will do it manually here.
+
+Modify the front controller.
