@@ -11,8 +11,8 @@ I have brought major changes to the original tutorial, even adding a few new cha
 - [Composer](./3-composer.md)
 - [Routing 2: Installing a Routing Package](./4-routing-package.md)
 - [Error Handling](./5-error-handling.md)
-- Dispatching to a Class
-- Inversion of Control, Service Locator and Dependency Injection
+- [Dispatching to a Class](./6-dispatching-to-a-class.md)
+- [Inversion of Control, Service Locator and Dependency Injection](./7-inversion-of-control.md)
 - Helpers
 - Configuration
 - Templates
