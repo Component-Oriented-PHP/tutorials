@@ -38,7 +38,9 @@ Here in the composer.json file, we added a `config` key containing two options:
 - `sort-packages` tells composer to sort the packages alphabetically
 - `optimize-autoloader` tells composer to optimize the autoloading process by scanning and mapping all class files to their paths. This means PHP can directly load a class without having to search for it on the filesystem. It's especially helpful in production environments, where performance matters.
 
-From this point onwards, we will install lots of packages from [Packagist](https://packagist.org/) by running `composer require vendor-name/package-name`. You will see that the packages are installed in the `vendor` dir and composer.json is automatically updated with the list of installed packages under the `require` key.
+From this point onwards, we’ll start installing packages from [Packagist](https://packagist.org/) using the `composer require vendor-name/package-name` command. Each time we do this, Composer will update the `composer.json` file under the require key and install the package into a `vendor` directory.
+
+Along with this, Composer also generates a crucial file: `vendor/autoload.php`. This file is the glue that ties everything together. By simply including it in our application's entry point (i.e., `public/index.php`), we can automatically use any class from any installed package—no more manual `require_once` statements. It’s a true game-changer.
 
 > 🔥NOTE: Never commit vendor dir to your git repo. The sheer size of the packages will make GitHub kick you out of their platform (Just kidding, but never commit vendor dir to your git repo). Add `vendor/` to your `.gitignore` file in root of your project.
 
