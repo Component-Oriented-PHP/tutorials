@@ -5,6 +5,8 @@ next: 5-error-handling
 
 # Routing 2: Installing a Routing Package
 
+THIS IS A LONG ONE. GO HAVE LUNCH BEFORE YOU BEGIN.
+
 Head over to [packagist](https://packagist.org) and pay attention at the top center. You will see an important thing...
 
 "Composer v1 support is coming to an end"... Oh... sorry... not this one...
@@ -209,12 +211,226 @@ $handler($request, $route); // run the function
 This is the grand finale! If a route was found:
 
 - `$handler = $route->handler;`: We get the handler that you defined for that specific route. In our case, this is the callable function() {...}.
-- `$handler($request, $route);`: We execute that function! The router is smart enough to pass the $request object and the $route object into your handler function. This is why you can access the slug inside the blog handler using `$route->attributes['slug']`. It gives your route's code access to all the information about the incoming request and the matched route.
+- `$handler($request, $route);`: We execute that function! The router is smart enough to pass the `$request` object and the $route object into our handler function. This is why you can access the slug inside the blog handler using `$route->attributes['slug']`. It gives our route's code access to all the information about the incoming request and the matched route.
 
-And that's it! We've successfully connected an incoming request to a specific piece of your code. Awesome job! Go get me some tea now.
+And that's it! We've successfully connected an incoming request to a specific piece of our code. Awesome job! Now go get me some tea. 😉
 
-Anyway, before going on to the next chapter (error handling), there is ONE MINOR IMPROVEMENT (not necessary, but this is my tutorial... I will do whatever the hell I want) that can be made to the front controller.
+Anyway, before going on to the next chapter (error handling), there is ONE MAJOR IMPROVEMENT that should be made to the front controller.
 
 See how we are passing $request and $route both to $handler and then passing both in callble function is blog map? What if we could pass only $request and not $route? Well, if we were using league/route package, it could have done that for us. But we will do it manually here.
 
 Modify the front controller.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Aura\Router\RouterContainer;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Laminas\Diactoros\ServerRequestFactory;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$routerContainer = new RouterContainer();
+
+$request = ServerRequestFactory::fromGlobals(
+    $_SERVER,
+    $_GET,
+    $_POST,
+    $_COOKIE,
+    $_FILES
+);
+
+$map = $routerContainer->getMap();
+
+$map->get('home', '/', function () {
+    return new HtmlResponse('This tuts rocks!!!');
+});
+
+$map->get('about', '/about', function () {
+    return new HtmlResponse('This is the about page!!!');
+});
+
+$map->get('contact', '/contact', function () {
+    return new HtmlResponse('This is the contact page!!!');
+});
+
+$map->get('blog_slug', '/blog/{slug}', function ($request) {
+    // Get the slug from the route attributes
+    $slug = (string) $request->getAttribute('slug');
+    $html = 'This is the blog page for ' . $slug . '!!!';
+    return new HtmlResponse($html);
+});
+
+// match the request
+$matcher = $routerContainer->getMatcher();
+$route = $matcher->match($request);
+
+// if no route registered for current path, it can be a 404 error, or 405, 406, etc.
+if (!$route) {
+    // get the first of the best-available non-matched routes
+    $failedRoute = $matcher->getFailedRoute();
+
+    // we need to handle the failed route
+    $response = match ($failedRoute->failedRule) {
+        // if method was not allowed (e.g., received GET request on a POST route)
+        'Aura\Router\Rule\Allows' => (function () {
+                // 405 METHOD NOT ALLOWED
+                return new HtmlResponse('405 METHOD NOT ALLOWED!!!', 405);
+            })(),
+        // if content type was not accepted (e.g. received HTML request on a JSON route)
+        'Aura\Router\Rule\Accepts' => (function () {
+                // 406 NOT ACCEPTABLE
+                return new HtmlResponse('406 NOT ACCEPTABLE!!!', 406);
+            })(),
+        // handle as a 404 error for other cases
+        default => new HtmlResponse('404 NOT FOUND!!!', 404)
+    };
+} else {
+    // A route was found, so let's handle the "happy path"
+
+    // add route attributes to the request
+    foreach ($route->attributes as $key => $val) {
+        $request = $request->withAttribute($key, $val);
+    }
+
+    // dispatch the route and get the response
+    $handler = $route->handler;
+    $response = $handler($request); // This executes our closure and gets the HtmlResponse object
+}
+
+// emit the response
+foreach ($response->getHeaders() as $name => $values) {
+    foreach ($values as $value) {
+        header(sprintf('%s: %s', $name, $value), false);
+    }
+}
+http_response_code($response->getStatusCode());
+echo $response->getBody();
+```
+
+The original code could do the job, but this improvement is a lot better. It may be a lot to handle right now, but I will try to explain the changes clearly including why we are using echo if routes are not found but HtmlResponse class for sending the response in case of route found.
+
+The new code I added introduces two main concepts that are central to modern frameworks/apps:
+
+1. **PSR-7 Response Objects**: Instead of just `echo`-ing content directly, our route handlers now create and return a standardized Response object. This is a game-changer for organization and testability of our code (we will learn unit testing later).
+2. **A Centralized "Emitter"**: All the logic for actually sending the final HTTP response (headers, status code, and body) is now in one place at the very end of the script.
+
+I will explain these two in detail. Don't rush, be patient, and listen carefully.
+
+As you can see, our route handlers went from this:
+
+```php
+// Old way
+$map->get('home', '/', function () {
+    echo 'This tuts rocks!!!';
+});
+
+// -- to this: --
+
+// New, improved way
+use Laminas\Diactoros\Response\HtmlResponse;
+
+$map->get('home', '/', function () {
+    return new HtmlResponse('This tuts rocks!!!');
+});
+```
+
+The old way is like tasting the soup directly from the pot as you cook. The new way is like carefully putting the finished soup into a bowl, ready to be served to the users. The job of a route handler (or controller or a callable function in our case right now) should be to figure out what the response should be, **not to actually send it**. By returning an HtmlResponse object, the handler prepares the "meal" (the HTML content, the status code '200 OK' (by default), the 'Content-Type: text/html' header) and hands it off to the emitter. It doesn't worry about the mechanics of sending it to the browser.
+
+This approach gives us some benefits. For instance, before the response is actually sent to the user, it can be modified however we want it to be. Like adding security headers, compression, or logging. We can easily add middleware (we shall learn more about this in Advanced tutorial series) that intercepts every response and adds a 'X-Powered-By: MyAwesomeFramework' header without touching individual route handlers. More on this later.
+
+Next, move on to the little loop to simplify route handling:
+
+```php
+// add route attributes to the request
+foreach ($route->attributes as $key => $val) {
+    $request = $request->withAttribute($key, $val);
+}
+```
+
+This leads to a much cleaner handler for our blog posts route:
+
+```php
+// Old way - needed both $request and $route
+$map->get('blog_slug', '/blog/{slug}', function ($request, $route) {
+    $slug = (string) $route->attributes['slug'];
+    // ...
+});
+
+// New, improved way - only needs $request!
+$map->get('blog_slug', '/blog/{slug}', function ($request) {
+    $slug = (string) $request->getAttribute('slug');
+    // ...
+});
+```
+
+So, what's going on while adding route attributes to request obkect?
+
+1. After the router finds a match, the matched route object (`$route`) contains any dynamic parameters from the URL. In the case of `/blog/my-first-post`, `$route->attributes` would be an array like `['slug' => 'my-first-post']`.
+2. The foreach loop iterates through these attributes.
+3. `$request->withAttribute($key, $val)` creates a copy of the request object, but with the new attribute added. So, it adds the slug from the route directly onto the request object.
+4. Now, the `$request` object contains everything: the original request info (from `$_SERVER`, etc.) AND the dynamic URL parameters. Our handler now only needs one object, `$request`, as its single source of truth. It's much cleaner!
+
+Now, moving on to our new route not found handler...
+
+```php
+// Old way
+if (!$route) {
+    http_response_code(404);
+    echo '404';
+    exit;
+}
+
+// New, improved way
+if (!$route) {
+    // get the first of the best-available non-matched routes
+    $failedRoute = $matcher->getFailedRoute();
+
+    // we need to handle the failed route
+    $response = match ($failedRoute->failedRule) {
+        // if method was not allowed (e.g., received GET request on a POST route)
+        'Aura\Router\Rule\Allows' => (function () {
+                // 405 METHOD NOT ALLOWED
+                return new HtmlResponse('405 METHOD NOT ALLOWED!!!', 405);
+            })(),
+        // if content type was not accepted (e.g. received HTML request on a JSON route)
+        'Aura\Router\Rule\Accepts' => (function () {
+                // 406 NOT ACCEPTABLE
+                return new HtmlResponse('406 NOT ACCEPTABLE!!!', 406);
+            })(),
+        // handle as a 404 error for other cases
+        default => new HtmlResponse('404 NOT FOUND!!!', 404)
+    };
+}
+```
+
+Aura router is smart (so are other routing packages). When it fails to find a match, it often knows why it failed.
+
+- **404 NOT FOUND**: We all know what it is. If a route was not defined, but was requested, the router returns a 404.
+- **405 METHOD NOT ALLOWED**: This is a more specific error. Imagine you have a route defined only for POST requests at `/submit-form`. If a user tries to access `/submit-form` using a GET request (by typing it in their browser's address bar), the router knows the path exists, but the method is wrong. This is a 405 error.
+- **406 NOT ACCEPTABLE**: This is for more advanced content negotiation. Imagine our API can only produce JSON (application/json), but the client's request says it only accepts XML (Accept: application/xml). The router can see this mismatch and return a 406.
+
+Notice that we are setting $response variable to the HtmlResponse object corresponding to the failed route type.
+
+Next, I added a new part in the code:
+
+```php
+// The "Emitter"
+foreach ($response->getHeaders() as $name => $values) {
+    foreach ($values as $value) {
+        header(sprintf('%s: %s', $name, $value), false);
+    }
+}
+http_response_code($response->getStatusCode());
+echo $response->getBody();
+```
+
+This is our "emitter." Its only job is to take the final `$response` object (which was returned by our successful route handler) and translate it into an actual HTTP response that the browser understands.
+
+- `$response->getHeaders()`: It gets all the headers from the HtmlResponse object (e.g., Content-Type: text/html). It then loops through them and uses PHP's built-in header() function to send them.
+- `http_response_code($response->getStatusCode())`: It gets the status code from the object (e.g., 200) and sends it.
+- `echo $response->getBody()`: Finally, it gets the actual content (the HTML string) from the object and echos it as the body of the response.
+
+WOW!! That was a lot. Time to move on to [Error Handling](./5-error-handling.md), after a break.
