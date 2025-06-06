@@ -57,4 +57,4 @@ This helps catch type-related bugs early and makes your code more predictable. I
 
 Remember that the `declare` statement must be the very first statement in the file (after the opening `<?php` tag) to take effect for the entire file. This is why we place it at the top of our front controller.
 
-The next lesson is on [Composer](./composer).
+The next lesson is on [Composer](./composer.md).

@@ -6,7 +6,7 @@ I have brought major changes to the original tutorial, even adding a few new cha
 
 ## TOC
 
-- [Front Controller](./front-controller)
+- [Front Controller](./front-controller.md)
 - Composer
 - Error Handling
 - Routing
