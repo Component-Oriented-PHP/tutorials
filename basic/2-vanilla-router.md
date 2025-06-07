@@ -1,5 +1,4 @@
 ---
-layout: default
 previous: 1-front-controller
 next: 3-composer
 ---

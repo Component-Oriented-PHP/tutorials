@@ -1,5 +1,4 @@
 ---
-layout: default
 next: 2-vanilla-router
 ---
 

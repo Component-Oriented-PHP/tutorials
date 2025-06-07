@@ -1,5 +1,4 @@
 ---
-layout: default
 previous: 3-composer
 next: 5-error-handling
 ---

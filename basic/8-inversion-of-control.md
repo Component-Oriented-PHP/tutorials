@@ -1,5 +1,4 @@
 ---
-layout: default
 previous: 7-templates
 ---
 

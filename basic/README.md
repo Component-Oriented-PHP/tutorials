@@ -1,5 +1,4 @@
 ---
-layout: default
 next: 1-front-controller
 ---
 
