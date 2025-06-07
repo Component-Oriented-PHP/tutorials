@@ -171,16 +171,29 @@ HOWEVER... that's not the biggest issue right now. You may ask, that we covered 
 
 Let's see how we can handle configurations via DI.
 
-Create a file called `./src/Library/Service/ConfigFetcher.php`. This call will do the same job that our config helper did.
+Create two files called `./src/Library/Service/PHPConfigFetcher.php` and `./src/Library/Service/ConfigInterface.php`. ConfigInterface is there to ensure that just in case you want to use ini or yaml files for configuration, you can just create another library that implements the interface.
 
 ```php
+// src/Library/Service/ConfigInterface.php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Library\Service;
+namespace App\Library\Config;
 
-class ConfigFetcher
+interface ConfigInterface
+{
+    public function get(string $key): mixed;
+}
+
+// src/Library/Service/PHPConfigFetcher.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library\Config;
+
+class PHPConfigFetcher implements ConfigInterface
 {
     public function get(string $key): mixed
     {
@@ -210,9 +223,105 @@ class ConfigFetcher
 
 I just copy-pasted the code from helper function in a class method. No explanation needed here.
 
-Now, how do we make use of it via DI? Modify the front controller.
+Now, how do we make use of it via DI? Well, we register it as a dependency in `config/dependencies.php` file.
 
 ```php
-// public/index.php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class
+];
+```
+
+Now, let's update our front controller first to make use of our new and shiny ConfigInterface instead of including direct php config files for routes.
+
+```php
+// OLD WAY
+//map the route definitions
+$routes = require_once __DIR__ . '/../config/routes.php';
+foreach ($routes as $name => $route) {
+    // ... whatever code here is
+}
+
+// NEW WAY
+$routes = $container->make(\App\Library\Config\ConfigInterface::class)->get('routes');
+foreach ($routes as $name => $route) {
+    // ... whatever code here is
+}
+```
+
+Go refresh browser tab and the app should work as it did before.
+
+However, we still haven't solved the issue of having to pass `site_name` in every controller. Let's fix that.
+
+Refactor `TwigRenderer` to use ConfigInterface. Also, we will create a `config/templates.php` file to hold our templates configuration.
+
+```php
+// config/templates.php
+<?php
+
+<?php
+
+return [
+    'twig' => [
+        'path' => __DIR__ . '/../templates/twig',
+        'cache_path' => __DIR__ . '/../tmp/cache',
+        'debug' => getenv('APP_ENV') === 'development' ? true : false // if environment is development, set debug to true
+    ],
+    'plates' => [
+        'path' => __DIR__ . '/../templates/plates',
+    ],
+];
+
+// src/Library/View/TwigRenderer.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library\View;
+
+use App\Library\Config\ConfigInterface;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
+
+class TwigRenderer implements RendererInterface
+{
+    private Environment $renderer;
+
+    public function __construct(private ConfigInterface $config)
+    {
+        $loader = new FilesystemLoader($this->config->get('templates.twig.path'));
+        $this->renderer = new Environment($loader, [
+            'debug' => $this->config->get('templates.twig.debug'),
+            'cache' => $this->config->get('templates.twig.cache_path'),
+        ]);
+    }
+
+    public function render(string $template, array $data = []): string
+    {
+        return $this->renderer->render($template . '.twig', $data);
+    }
+}
+```
+
+If you're using the PlatesRenderer, you need to refactor that class accordingly.
+
+So, what is going on now in TwigRenderer?
+
+- Nothing special... just like Controllers, it stated that it needs any class that implements ConfigInterface.
+- The Container looks for defined dependencies. Remember what we did in config/dependencies.php? We did this: `ConfigInterface::class => PHPConfigFetcher::class`... so the container passed PHPConfigFetcher class (an instance of PHPConfigFetcher) to TwigRenderer.
+
+Okay, but how do we ensure that we don't have to repeat passing site name variable in all controllers? To achieve that, we need to modify the TwigRenderer (or PlatesRenderer) again.
+
+```php
+// src/Library/View/TwigRenderer.php
 
 ```
