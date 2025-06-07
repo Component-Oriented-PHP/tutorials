@@ -341,7 +341,7 @@ public function __construct()
 
 There is no major issue in it. However, the controller still knows about the ServiceLocator. It's still actively fetching its own dependency. Dependency Injection approach flips this around. The controller becomes completely passive. It simply states what it needs in its constructor, and something else provides it.
 
-So, how do we solve this not so significant issue for smaller apps but recommended pratice for bigger apps? Let's see... Look at HomeController... instead of the controller asking for the view service from ServiceLocator class, we're going to make it declare what it needs and let something else worry about providing it. (If your HomeController is screaming I like ServiceLocator then give it a slap and force it to follow my practice)...
+So, how do we solve this not so significant issue for smaller apps but recommended practice for bigger apps? Let's see... Look at HomeController... instead of the controller asking for the view service from ServiceLocator class, we're going to make it declare what it needs and let something else worry about providing it. (If your HomeController is screaming I like ServiceLocator then give it a slap and force it to follow my practice)...
 
 Let's modify our HomeController and AboutController:
 
@@ -449,4 +449,359 @@ Now, to make use of this DI Container, we have to make a few changes to our fron
 
 ```php
 // public/index.php
+<?php
+
+declare(strict_types=1);
+
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use Aura\Router\RouterContainer;
+use Auryn\Injector;
+use Dikki\DotEnv\DotEnv;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Laminas\Diactoros\ServerRequestFactory;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+(new DotEnv(__DIR__ . '/../'))->load();
+
+// Initialize Whoops for better error handling
+if (getenv('APP_ENV') === 'development') {
+    $whoops = new \Whoops\Run;
+    $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
+    $whoops->register();
+}
+
+// DI
+$container = new Injector();
+
+# register services
+// this tells the container: "When someone asks for RendererInterface, give them TwigRenderer"
+$container->alias(RendererInterface::class, TwigRenderer::class);
+
+// OR: to use PlatesRenderer instead, uncomment the line below and comment the one above
+// $container->alias(RendererInterface::class, \App\Library\View\PlatesRenderer::class);
+
+// Router
+$routerContainer = new RouterContainer();
+
+$request = ServerRequestFactory::fromGlobals(
+    $_SERVER,
+    $_GET,
+    $_POST,
+    $_COOKIE,
+    $_FILES
+);
+
+$map = $routerContainer->getMap();
+
+//map the route definitions
+$routes = require_once __DIR__ . '/../config/routes.php';
+foreach ($routes as $name => $route) {
+    $requestMethod = $route[0];
+    $path = $route[1];
+    $handler = explode('::', $route[2]);
+    $controller = $handler[0];
+    $method = $handler[1];
+
+    // we need to make use of DI container to pass the necessary services to controller for usage
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container) {
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+}
+
+// match the request
+$matcher = $routerContainer->getMatcher();
+$route = $matcher->match($request);
+
+// if no route registered for current path, it can be a 404 error, or 405, 406, etc.
+if (!$route) {
+    // get the first of the best-available non-matched routes
+    $failedRoute = $matcher->getFailedRoute();
+
+    // we need to handle the failed route
+    $response = match ($failedRoute->failedRule) {
+        // if method was not allowed (e.g., received GET request on a POST route)
+        'Aura\Router\Rule\Allows' => (function () {
+                // 405 METHOD NOT ALLOWED
+                return new HtmlResponse('405 METHOD NOT ALLOWED!!!', 405);
+            })(),
+        // if content type was not accepted (e.g. received HTML request on a JSON route)
+        'Aura\Router\Rule\Accepts' => (function () {
+                // 406 NOT ACCEPTABLE
+                return new HtmlResponse('406 NOT ACCEPTABLE!!!', 406);
+            })(),
+        // handle as a 404 error for other cases
+        default => new HtmlResponse('404 NOT FOUND!!!', 404)
+    };
+} else {
+    // A route was found, so let's handle the "happy path"
+
+    // add route attributes to the request
+    foreach ($route->attributes as $key => $val) {
+        $request = $request->withAttribute($key, $val);
+    }
+
+    // dispatch the route and get the response
+    $handler = $route->handler;
+    $response = $handler($request); // This executes our closure and gets the HtmlResponse object
+}
+
+// emit the response
+foreach ($response->getHeaders() as $name => $values) {
+    foreach ($values as $value) {
+        header(sprintf('%s: %s', $name, $value), false);
+    }
+}
+http_response_code($response->getStatusCode());
+echo $response->getBody();
 ```
+
+Now, check the browser. Error should be gone by now. Let me explain what happened.
+
+Notice this part:
+
+```php
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use Auryn\Injector;
+
+// DI
+$container = new Injector();
+
+# register services
+// this tells the container: "When someone asks for RendererInterface, give them TwigRenderer"
+$container->alias(RendererInterface::class, TwigRenderer::class);
+
+// OR: to use PlatesRenderer instead, uncomment the line below and comment the one above
+// $container->alias(RendererInterface::class, \App\Library\View\PlatesRenderer::class);
+
+```
+
+So what's going on? First, we create an instance of the Injector class which Aryun's package provides for dependency management.
+
+But this won't work alone. Why? You know our controller is asking for RendererInterface. We have two classes that implement that: PlatesRenderer and TwigRenderer. Which one should the container be able to pass? It does not know that.
+
+So, we are telling the container, to register that when someone asks for RendererInterface, give them TwigRenderer.
+
+```php
+$container->alias(RendererInterface::class, TwigRenderer::class);
+```
+
+Now container knows, that if a controller asks for RendererInterface, give them TwigRenderer. You can uncomment the PlatesRenderer line if you want to use PlatesRenderer instead (don't forget to comment TwigRenderer line; one alias can have multiple implementations but the one registered last will be used by Container).
+
+Next, move on to route mapping part because without that DI won't work.
+
+```php
+
+    // OLD WAY
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method) {
+        return (new $controller())->$method($request);
+    });
+
+    // NEW WAY
+    // we need to make use of DI container to pass the necessary services to controller for usage
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container) {
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+```
+
+Notice what we are doing here. In the function, we added $container [`use ($controller, $method, $container)`] to ensure that we can make use of container in the function where we are instantiating controller.
+
+Notice that earlier we had `return (new $controller())->$method($request);`. Here we were directly instantiating the controller, but now we are doing this: `$controllerInstance = $container->make($controller);`.
+
+What's that? Basically, we are asking the Container to create an instance of the controller that route expects rather than manually instantiating like earlier. Why? Because if we don't, the container will not be able to pass the necessary dependencies to the controller.
+
+In the following line `return $controllerInstance->$method($request);`, we are calling a method on the controller instance to handle the request.
+
+That's it. It may sound complicated right now, as it did to me when I read about it for the first time, but I promise that overtime as you use this approach, it will become easier to understand. I believe in your capabilities (if you don't believe yourself, give yourself a hard slap and then read what I said here again).
+
+> NOTE: You may ask now, if we have to use hundreds of services in our controllers, then are we going to register all 100 services in the container? Well, yes and no.
+> Some DI container packages like League Container or Symfony's DI come with something called **Autowiring**. With autowiring enabled, you can typehint concrete classes in your controllers and the container will automatically instantiate them and their dependencies - no explicit registration needed.
+> However, for interfaces (like our RendererInterface), you still need explicit registration because the container can't guess which implementation to use.
+> It is highly recommended to register your key services explicitly in the container for the sake of explicitness, testability, and clarity of what is going on and where. Autowiring is great to get job done, but explicit registration gives you full control.
+
+Anyway, before we move on to the next turorial, we can do ONE LAST THING FOR ASTHETICS.
+
+You see, as we continue building our application the number of registered services will be in tens if not hundreds. This will clutter our front controller. Think with me. What can we do?
+
+We have several options (Think... think... don't just read... use your brain to come up with solutions... keep thinking on problem-solution line instead of passively reading). One option is to do the same thing we did to our routes. Like create a `config/dependencies.php` php array file, register all dependencies as php array there, then include that config file, register each defined dependency via foreach loop. That's simple enough.
+
+```php
+// example only
+// config/dependencies.php
+
+return [
+    \App\Library\View\RendererInterface::class => \App\Library\View\TwigRenderer::class,
+];
+
+// public/index.php
+$dependencies = require_once __DIR__ . '/../config/dependencies.php';
+
+foreach ($dependencies as $interface => $class) {
+    $container->alias($interface, $class);
+}
+```
+
+What else?
+
+Another option is to create a separate class (e.g., `src/Library/Service/Container.php`) and register all our dependencies in a register method that will stay private. Then have a getContainer() public method that creates an instance of Auryn Injector, registers services by calling our private method, and then return the Injector itself. Then we can use this class itself to only create controller instance (remember, we'd have registered all dependencies in the private method).
+
+```php
+// example only
+// src/Library/Service/Container.php
+
+class Container
+{
+    public function getContainer()
+    {
+        $container = new Aryun\Injector();
+
+        $this->registerServices($container);
+
+        return $container;
+    }
+
+    private function registerServices(Injector $container)
+    {
+        $container->alias(\App\Library\View\RendererInterface::class, \App\Library\View\TwigRenderer::class);
+    }
+}
+```
+
+I will use the config approach for the sake of simplicity in this basic tutorial. And maybe... we will take a different approach in the advanced one.
+
+Create a file `config/dependencies.php` and add the following code:
+
+```php
+<?php
+
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+];
+```
+
+Now, refactor the `public/index.php` file:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Aura\Router\RouterContainer;
+use Auryn\Injector;
+use Dikki\DotEnv\DotEnv;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Laminas\Diactoros\ServerRequestFactory;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+(new DotEnv(__DIR__ . '/../'))->load();
+
+// Initialize Whoops for better error handling
+if (getenv('APP_ENV') === 'development') {
+    $whoops = new \Whoops\Run;
+    $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
+    $whoops->register();
+}
+
+// DI
+$container = new Injector();
+
+# register services
+$dependencies = require_once __DIR__ . '/../config/dependencies.php';
+foreach ($dependencies as $key => $value) {
+    $container->alias($key, $value);
+}
+
+// Router
+$routerContainer = new RouterContainer();
+
+$request = ServerRequestFactory::fromGlobals(
+    $_SERVER,
+    $_GET,
+    $_POST,
+    $_COOKIE,
+    $_FILES
+);
+
+$map = $routerContainer->getMap();
+
+//map the route definitions
+$routes = require_once __DIR__ . '/../config/routes.php';
+foreach ($routes as $name => $route) {
+    $requestMethod = $route[0];
+    $path = $route[1];
+    $handler = explode('::', $route[2]);
+    $controller = $handler[0];
+    $method = $handler[1];
+
+    // we need to make use of DI container to pass the necessary services to controller for usage
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container) {
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+}
+
+// match the request
+$matcher = $routerContainer->getMatcher();
+$route = $matcher->match($request);
+
+// if no route registered for current path, it can be a 404 error, or 405, 406, etc.
+if (!$route) {
+    // get the first of the best-available non-matched routes
+    $failedRoute = $matcher->getFailedRoute();
+
+    // we need to handle the failed route
+    $response = match ($failedRoute->failedRule) {
+        // if method was not allowed (e.g., received GET request on a POST route)
+        'Aura\Router\Rule\Allows' => (function () {
+                // 405 METHOD NOT ALLOWED
+                return new HtmlResponse('405 METHOD NOT ALLOWED!!!', 405);
+            })(),
+        // if content type was not accepted (e.g. received HTML request on a JSON route)
+        'Aura\Router\Rule\Accepts' => (function () {
+                // 406 NOT ACCEPTABLE
+                return new HtmlResponse('406 NOT ACCEPTABLE!!!', 406);
+            })(),
+        // handle as a 404 error for other cases
+        default => new HtmlResponse('404 NOT FOUND!!!', 404)
+    };
+} else {
+    // A route was found, so let's handle the "happy path"
+
+    // add route attributes to the request
+    foreach ($route->attributes as $key => $val) {
+        $request = $request->withAttribute($key, $val);
+    }
+
+    // dispatch the route and get the response
+    $handler = $route->handler;
+    $response = $handler($request); // This executes our closure and gets the HtmlResponse object
+}
+
+// emit the response
+foreach ($response->getHeaders() as $name => $values) {
+    foreach ($values as $value) {
+        header(sprintf('%s: %s', $name, $value), false);
+    }
+}
+http_response_code($response->getStatusCode());
+echo $response->getBody();
+```
+
+Go on. Check the browser. App should work as it should.
+
+Next up, I am covering [configurations](./9-configurations.md).
