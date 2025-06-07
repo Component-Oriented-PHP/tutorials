@@ -15,7 +15,7 @@ However, for that, we don't really need an external package as PHP itself is a t
 
 In the root of your project, create a `templates` directory. We are going to place all our view files in this directory. If you want, you can place them in `./src/View` or `./src/Templates` directories instead. Your call, it's your application.
 
-Then run `composer require league/plates` in the root to install League Plates. You can install [Twig](https://twig.symfony.com/), [Nette Latte](https://latte.nette.org/), [Aura View](https://github.com/auraphp/Aura.View), [davanich view renderer](https://github.com/devanych/view-renderer), [Mustance](https://github.com/bobthecow/mustache.php) the good old [Smarty](https://www.smarty.net/) or any other template engine you like, even [Laravel Blade](https://github.com/jenssegers/blade).
+Then run `composer require league/plates` in the root to install League Plates. You can install [Twig](https://twig.symfony.com/), [Nette Latte](https://latte.nette.org/), [Aura View](https://github.com/auraphp/Aura.View), [davanich view renderer](https://github.com/devanych/view-renderer), [Mustache](https://github.com/bobthecow/mustache.php) the good old [Smarty](https://www.smarty.net/) or any other template engine you like, even [Laravel Blade](https://github.com/jenssegers/blade).
 
 In the templates directory add the following code (I am adding all plates view files in plates directory as I will be teaching you how to replace plates with another template engine in Inversion of Control chapter, wherein we will place those view files in separate directory for clarity):
 
@@ -49,6 +49,7 @@ In the templates directory add the following code (I am adding all plates view f
 // templates/plates/partials/header.php
 <header class="container">
     <a href="/" class="logo">Home</a>
+    <a href="/about">About Us</a>
 </header>
 
 // templates/plates/partials/footer.php
@@ -83,12 +84,11 @@ Welcome to <span class="platesphp">PlatesPHP</span> About Us Page!
     }
 </style>
 <?php $this->end() ?>
-
 ```
 
-Note that we are creating separate directories for each controller (home for HomeController, about for AboutController [to be created below]) and separated directories for layout and partials (includes). This is not a strict requirement, but a good practice. Your call, structure your templates directory however the fuck you want, but always keep things clean.
+Note that we are creating separate directories for each controller (home for HomeController, about for AboutController [to be created below]) and separated directories for layout and partials (includes). This is not a strict requirement, but a good practice. Your call, structure your templates directory however you want, but always keep things clean.
 
-One more thing, I am not a designer/frontend dev. So if the app looks ugly by design, blame yourself. Go get me a tea.
+One more thing, I am not a designer/frontend dev. So if the app looks ugly by design.
 
 Before we move on to using the views, let me explain how platesphp (the templating engine we just installed) works.
 
@@ -106,9 +106,200 @@ Anyway, now we have our view files that we can use. But how to we use these in c
 Well, let's open HomeController and change it.
 
 ```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function index(ServerRequestInterface $request)
+    {
+        $view = new \League\Plates\Engine(__DIR__ . '/../../templates/plates');
+        return new HtmlResponse($view->render('home/index', [
+            'title' => 'This is a title for Homepage'
+        ]));
+    }
+}
 ```
 
 Let's add AboutController and relevant route as well.
 
 ```php
+// src/Controller/AboutController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class AboutController
+{
+    public function index(ServerRequestInterface $request)
+    {
+        $view = new \League\Plates\Engine(__DIR__ . '/../../templates/plates');
+        return new HtmlResponse($view->render('about/index', [
+            'title' => 'This is a title for About Us'
+        ]));
+    }
+}
+
+// config/routes.php
+<?php
+
+return [
+    // route name => [route method, route path, controller::method]
+    'home' => ['get', '/', '\App\Controller\HomeController::index'],
+    'about' => ['get', '/about', '\App\Controller\AboutController::index'],
+];
 ```
+
+Refresh the browser and visit home and about pages. You should get the expected results.
+
+But notice that the HTML title is not changing to the ones we set in controller. We need to change home/index.php and about/index.php to use $title instead of passing explicit title values to layout.
+
+```html
+// templates/plates/home/index.php
+<?php $this->layout('layouts/default', ['title' => $title]) ?>
+
+Welcome to <span class="platesphp">PlatesPHP</span>!
+
+<?php $this->start('styles') ?>
+<style>
+    .platesphp {
+        color: red;
+    }
+</style>
+<?php $this->end() ?>
+
+// templates/plates/about/index.php
+<?php $this->layout('layouts/default', ['title' => $title]) ?>
+
+Welcome to <span class="platesphp">PlatesPHP</span> About Us Page!
+
+<?php $this->start('styles') ?>
+<style>
+    .platesphp {
+        color: blue;
+    }
+</style>
+<?php $this->end() ?>
+```
+
+Try again. You should see the same titles set in controllers Now.
+
+**HOWEVER**, there is ONE BIG PROBLEM. What if we had 100 controllers? Would we repeat the same code of creating an engine, passing path to templates dir? Hell no... that's stupidity. What if we decided we wanted to move templates dir to src folder instead? We wouldn't go around changing all the controllers.
+
+We need a separate class. Let's create `PlatesRenderer` inside ./src/Library to ensure code reusability.
+
+```php
+// src/Library/PlatesRenderer.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library;
+
+use League\Plates\Engine;
+
+class PlatesRenderer
+{
+    private Engine $engine;
+
+    public function __construct()
+    {
+        $this->engine = new Engine(__DIR__ . '/../../templates/plates');
+    }
+
+    public function render(string $template, array $data): string
+    {
+        return $this->engine->render($template, $data);
+    }
+}
+```
+
+Now let's update HomeController and AboutController to use PlatesRenderer instead of PlatesEngine.
+
+```php
+// src/Controller/HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\PlatesRenderer;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    private PlatesRenderer $view;
+
+    public function __construct()
+    {
+        $this->view = new PlatesRenderer();
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+        return new HtmlResponse($this->view->render('home/index', [
+            'title' => 'This is a title for Homepage!'
+        ]));
+    }
+}
+
+// src/Controller/AboutController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\PlatesRenderer;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class AboutController
+{
+
+    private PlatesRenderer $view;
+
+    public function __construct()
+    {
+        $this->view = new PlatesRenderer();
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+        return new HtmlResponse($this->view->render('about/index', [
+            'title' => 'This is a title for About Us!'
+        ]));
+    }
+}
+```
+
+Do I need to tell you what to do next? Go on... check the browser (notice the additional exclaimation mark in HTML title).
+
+Now, you may ask, why did we move view to constructor? Because index is not the only method that may need to render view. We are not going to keep creating new instances of PlatesRenderer in every method that will use it. It's not efficient.
+
+Next question, why is PlatesRenderer private? Because it's not going to be used outside of this class. By making the $view property private, we are hiding the internal details of the controller. Other parts of our application don't need to know how the controller renders a view, just that it can.
+
+Now, also notice how both HomeController and AboutController have the same constructor code. What if we had 20 such controllers? One option to not repeat is to create an AbstractController (abstract class) that both HomeController and AboutController extend. AbstractController can have a method that returns PlatesRenderer (or any other renderer) and we can use it in HomeController and AboutController. However, we are not going to do that here. We are instead going to rely on dependency injection (be patient), which we will cover in the next chapter.
+
+However, you are free to use AbstractController approach if you are more comfortable with that.
+
+But you see, assume you have two controllers, AuthController and HomeController. In AbstractController, you have $this->view, and $this->session objects. Now, you will use $this->view in both the controllers, but HomeController won't need $this->session object. So, technically, what you're doing by using AbstractController is that even when a controller does not need a session object, it will still have access to $this->session. So, session is instantiated even though it is not needed.
+
+This creates unnecessary overhead and violates the principle of "only take what you need." With dependency injection, AuthController would inject both view and session services, while HomeController would only inject the view service. Each controller gets exactly what it requires, nothing more, nothing less.
+
+Also, if you have 10 controllers and only 3 need session functionality, AbstractController would still instantiate session objects for all 10 controllers. That's wasteful. DI ensures each controller only carries the dependencies it actually uses, making your application more efficient and thus your code more explicit about its requirements.
+
+In the next chapter, I will cover the most important thing IMO - [Inversion of Control](./8-inversion-of-control.md).
