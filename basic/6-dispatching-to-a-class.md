@@ -240,7 +240,7 @@ Notice that I added a type hint for `Psr\Http\Message\ServerRequestInterface` fo
 
 Back in our front controller, we use the `Laminas\Diactoros\ServerRequestFactory` to create a request object, which is an instance of `Laminas\Diactoros\ServerRequest`. So in our controller, why do we type-hint against the `Psr\Http\Message\ServerRequestInterface` instead of that concrete class? This is a core principle of modern application design. By depending on an interface (which is like a contract for how a class should behave) rather than a specific implementation, we decouple our controller from the component that creates the request. If we ever decide to switch from `laminas-diactoros` to another library that also follows the PSR-7 standard, we wouldn't have to change a single line of code in our controller!
 
-Now, you may ask, but aren't we using HtmlResponse class directly? Won't we have to replace it with something else? Yes... and to answer that we are covering inversion of control in the next chapter.
+Now, you may ask, but **aren't we using HtmlResponse class directly? Won't we have to replace it with something else?** Yes... and to answer that we are covering inversion of control in the next chapter.
 
 Also, you might have noticed the private keyword directly in the constructor's parameter list. This is a nifty feature from PHP 8 called Constructor Property Promotion. It's just a more concise way of writing this:
 
@@ -268,6 +268,7 @@ One more thing... if we were using League Route for example, or symfony routes, 
 > - You may ask, what to pass in the controller and method then? Why pass `$request` in method not controller?
 > - You typically inject long-lived services or dependencies into the constructor. These are objects that the controller will need to perform many of its tasks. Examples: a database connection, a template rendering engine, or a logging service. These services don't change from one request to the next.
 > - The `$request` object is different. It represents the current, specific incoming HTTP request. It's highly dynamic and unique to each call (in methods). Therefore, it makes more logical sense to pass it directly to the method that is handling that specific request rather than the whole constructor.
+> - Another important thing is that we could replace `HtmlResponse` with a response factory but I would like to wait for the inversion of control chapter to cover that part. And no, we cannot pass `$response` to the method the same way we did with `$request`. Why? Because `$request` is `data coming IN` that you read from, while `$response` is `data going OUT` that you create and return. You don't receive a response to modify - `you build a fresh response from scratch`. What we'll inject in the constructor later is a `ResponseFactory` (a tool for creating responses), not a response object itself. The factory is a long-lived service, while each response is unique to each method call - just like each request.
 
 Let's change the Home controller and the front controller.
 
