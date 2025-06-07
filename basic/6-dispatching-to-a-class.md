@@ -1,4 +1,5 @@
 ---
+layout: default
 previous: 5-error-handling
 next: 7-templates
 ---

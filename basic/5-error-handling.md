@@ -1,4 +1,5 @@
 ---
+layout: default
 previous: 4-routing-package
 next: 6-dispatching-to-a-class
 ---

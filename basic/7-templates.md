@@ -1,4 +1,5 @@
 ---
+layout: default
 previous: 6-dispatching-to-a-class
 next: 8-inversion-of-control
 ---

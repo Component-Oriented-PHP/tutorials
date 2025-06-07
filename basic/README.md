@@ -1,3 +1,8 @@
+---
+layout: default
+next: 1-front-controller
+---
+
 # Basic Tutorial
 
 The basic tutorial is more of a modern rewrite of the [original tutorial by Patrick Louys & contributors](https://github.com/PatrickLouys/no-framework-tutorial). You will find more exciting stuff in the advanced tutorial. Start below.

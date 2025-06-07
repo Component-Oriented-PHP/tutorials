@@ -1,4 +1,5 @@
 ---
+layout: default
 previous: 2-vanilla-router
 next: 4-routing-package
 ---
