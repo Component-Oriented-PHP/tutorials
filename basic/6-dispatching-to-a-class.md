@@ -1,6 +1,6 @@
 ---
 previous: 5-error-handling
-next: 7-inversion-of-control
+next: 7-templates
 ---
 
 # Dispatching to a Class
@@ -240,7 +240,7 @@ Notice that I added a type hint for `Psr\Http\Message\ServerRequestInterface` fo
 
 Back in our front controller, we use the `Laminas\Diactoros\ServerRequestFactory` to create a request object, which is an instance of `Laminas\Diactoros\ServerRequest`. So in our controller, why do we type-hint against the `Psr\Http\Message\ServerRequestInterface` instead of that concrete class? This is a core principle of modern application design. By depending on an interface (which is like a contract for how a class should behave) rather than a specific implementation, we decouple our controller from the component that creates the request. If we ever decide to switch from `laminas-diactoros` to another library that also follows the PSR-7 standard, we wouldn't have to change a single line of code in our controller!
 
-Now, you may ask, but **aren't we using HtmlResponse class directly? Won't we have to replace it with something else?** Yes... and to answer that we are covering inversion of control in the next chapter.
+Now, you may ask, but **aren't we using HtmlResponse class directly? Won't we have to replace it with something else?** Yes... and to answer that we are covering inversion of control in chapter 8.
 
 Also, you might have noticed the private keyword directly in the constructor's parameter list. This is a nifty feature from PHP 8 called Constructor Property Promotion. It's just a more concise way of writing this:
 
@@ -423,4 +423,4 @@ echo $response->getBody();
 
 Check the browser, you should see the same thing as before. But now, we have separated the route definitions from the front controller.
 
-In the next lesson, you will learn an important concept called ["Inversion of Control"](./7-inversion-of-control.md).
+In the next lesson, we will implement a [template engine](./7-templates.md) to render HTML responses instead of the current strings.
