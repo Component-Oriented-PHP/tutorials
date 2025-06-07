@@ -1,1 +1,8 @@
 title: "Component Oriented PHP Tutorials"
+description: Learn how to create PHP applications using standalone Composer packages instead of full frameworks.
+theme: just-the-docs
+
+url: https://component-oriented-php.github.io/tutorials/
+
+aux_links: # remove if you don't want this link to appear on your pages
+  Template Repository: https://github.com/Component-Oriented-PHP/tutorials

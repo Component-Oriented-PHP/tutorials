@@ -15,7 +15,7 @@ However, for that, we don't really need an external package as PHP itself is a t
 
 In the root of your project, create a `templates` directory. We are going to place all our view files in this directory. If you want, you can place them in `./src/View` or `./src/Templates` directories instead. Your call, it's your application.
 
-Then run `composer require league/plates` in the root to install League Plates. You can install [Twig](https://twig.symfony.com/), [Nette Latte](https://latte.nette.org/), [Aura View](https://github.com/auraphp/Aura.View), [davanich view renderer](https://github.com/devanych/view-renderer), [Mustache](https://github.com/bobthecow/mustache.php) the good old [Smarty](https://www.smarty.net/) or any other template engine you like, even [Laravel Blade](https://github.com/jenssegers/blade).
+Then run `composer require league/plates` in the root to install League Plates. You can install [Twig](https://twig.symfony.com/), [Nette Latte](https://latte.nette.org/), [Aura View](https://github.com/auraphp/Aura.View), [davanich view renderer](https://github.com/devanych/view-renderer), [Mustache](https://github.com/bobthecow/mustache.php), the good old [Smarty](https://www.smarty.net/) or any other template engine you like, even [Laravel Blade](https://github.com/jenssegers/blade).
 
 In the templates directory add the following code (I am adding all plates view files in plates directory as I will be teaching you how to replace plates with another template engine in Inversion of Control chapter, wherein we will place those view files in separate directory for clarity):
 
@@ -88,7 +88,7 @@ Welcome to <span class="platesphp">PlatesPHP</span> About Us Page!
 
 Note that we are creating separate directories for each controller (home for HomeController, about for AboutController [to be created below]) and separated directories for layout and partials (includes). This is not a strict requirement, but a good practice. Your call, structure your templates directory however you want, but always keep things clean.
 
-One more thing, I am not a designer/frontend dev. So if the app looks ugly by design.
+One more thing, I am not a designer/frontend dev. So if the app looks ugly by design, don't blame me.
 
 Before we move on to using the views, let me explain how platesphp (the templating engine we just installed) works.
 
