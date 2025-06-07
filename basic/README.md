@@ -19,7 +19,7 @@ I have brought major changes to the original tutorial, even adding a few new cha
 - [Templates](./7-templates.md)
 - [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
 - [Configuration and Helpers](./9-configuration.md)
-- Markdown Parsing
+- [Markdown Parsing](./10-markdown.md)
 - Dynamic Pages
 - Frontend
 

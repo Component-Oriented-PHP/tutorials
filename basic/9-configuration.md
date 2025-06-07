@@ -323,5 +323,53 @@ Okay, but how do we ensure that we don't have to repeat passing site name variab
 
 ```php
 // src/Library/View/TwigRenderer.php
+<?php
 
+declare(strict_types=1);
+
+namespace App\Library\View;
+
+use App\Library\Config\ConfigInterface;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
+
+class TwigRenderer implements RendererInterface
+{
+    private Environment $renderer;
+    protected array $globalConfig = [];
+
+    public function __construct(private ConfigInterface $config)
+    {
+        $loader = new FilesystemLoader($this->config->get('templates.twig.path'));
+        $this->renderer = new Environment($loader, [
+            'debug' => $this->config->get('templates.twig.debug'),
+            'cache' => $this->config->get('templates.twig.cache_path'),
+        ]);
+
+        $this->globalConfig = ['app' => $this->config->get('app')];
+    }
+
+    public function render(string $template, array $data = []): string
+    {
+        return $this->renderer->render($template . '.twig', array_merge($this->globalConfig, $data));
+    }
+}
 ```
+
+Refactor the layout view file to use the new variable (i.e. `app.name`).
+
+```twig
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - {{app.name}}</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.red.min.css">
+
+    {% block styles %}{% endblock %}
+</head>
+```
+
+Congrats... we've got a working configuration setup now.
+
+In the next chapter, I will cover [Markdown Parsing](./10-markdown.md) for our application's pages.
