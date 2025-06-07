@@ -146,7 +146,7 @@ foreach ($routes as $name => $route) {
     $method = $handler[1];
 
     $map->$requestMethod($name, $path, function ($request) use ($controller, $method) {
-        return (new $controller($request))->$method();
+        return (new $controller($request))->$method(); // frameworks pass $request to method directly, will change it below
     });
 }
 
@@ -225,7 +225,7 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class HomeController
 {
-    public function __construct(private ServerRequestInterface $request)
+    public function __construct(private ServerRequestInterface $request) // not the best way, will change it below
     {
     }
 
@@ -239,6 +239,8 @@ class HomeController
 Notice that I added a type hint for `Psr\Http\Message\ServerRequestInterface` for the `$request property.
 
 Back in our front controller, we use the `Laminas\Diactoros\ServerRequestFactory` to create a request object, which is an instance of `Laminas\Diactoros\ServerRequest`. So in our controller, why do we type-hint against the `Psr\Http\Message\ServerRequestInterface` instead of that concrete class? This is a core principle of modern application design. By depending on an interface (which is like a contract for how a class should behave) rather than a specific implementation, we decouple our controller from the component that creates the request. If we ever decide to switch from `laminas-diactoros` to another library that also follows the PSR-7 standard, we wouldn't have to change a single line of code in our controller!
+
+Now, you may ask, but aren't we using HtmlResponse class directly? Won't we have to replace it with something else? Yes... and to answer that we are covering inversion of control in the next chapter.
 
 Also, you might have noticed the private keyword directly in the constructor's parameter list. This is a nifty feature from PHP 8 called Constructor Property Promotion. It's just a more concise way of writing this:
 
@@ -259,9 +261,55 @@ class HomeController
 
 By adding the visibility keyword (private, public, or protected), PHP automatically creates the property and assigns the incoming value to it. It's cleaner this way.
 
+One more thing... if we were using League Route for example, or symfony routes, (or any framework) they'd have passed `$request` directly to the method being called (e.g. `HomeController->index($request)`), so we wouldn't have needed to pass it to the constructor. But I did it here so that I could tell you about the Constructor Property Promotion feature. In the later parts we will modify our codebase to follow the best practices, pass `$request` object to the method instead and save constructor for services/libraries we use.
+
+> NOTES:
+>
+> - You may ask, what to pass in the controller and method then? Why pass `$request` in method not controller?
+> - You typically inject long-lived services or dependencies into the constructor. These are objects that the controller will need to perform many of its tasks. Examples: a database connection, a template rendering engine, or a logging service. These services don't change from one request to the next.
+> - The `$request` object is different. It represents the current, specific incoming HTTP request. It's highly dynamic and unique to each call (in methods). Therefore, it makes more logical sense to pass it directly to the method that is handling that specific request rather than the whole constructor.
+
+Let's change the Home controller and the front controller.
+
+```php
+// HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function index(ServerRequestInterface $request)
+    {
+        return new HtmlResponse('This tuts rocks!!! This comes from Home Controller!');
+    }
+}
+
+// in public/index.php
+
+# map the route definitions
+$routes = require_once __DIR__ . '/../config/routes.php';
+foreach ($routes as $name => $route) {
+    $requestMethod = $route[0];
+    $path = $route[1];
+    $handler = explode('::', $route[2]);
+    $controller = $handler[0];
+    $method = $handler[1];
+
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method) {
+        return (new $controller())->$method($request);
+    });
+}
+```
+
 Go to the browser and see if it works (it should).
 
-However, there is a minor issue in the front controller. You see how we are defining routes (a type of configuration) directly in the public/index.php file?
+However, there is a minor issue in the front controller. You see how we are defining routes (a type of configuration) directly in the `public/index.php` file?
 
 Why don't we separate the routes into a diff file altogether? Let's create a config folder and create a routes.php file in it.
 
@@ -321,7 +369,7 @@ foreach ($routes as $name => $route) {
     $method = $handler[1];
 
     $map->$requestMethod($name, $path, function ($request) use ($controller, $method) {
-        return (new $controller($request))->$method();
+        return (new $controller())->$method($request);
     });
 }
 
