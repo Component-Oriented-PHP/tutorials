@@ -105,6 +105,130 @@ One thing to note though... this implementation creates a new ServiceLocator ins
 
 Anyway, moving on... let's create TwigRenderer to handle rendering with Twig views.
 
+In root dir, run `composer require twig/twig`. Then create `src/Library/View/TwigRenderer.php` file.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library\View;
+
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
+
+class TwigRenderer
+{
+    private Environment $renderer;
+
+    public function __construct()
+    {
+        $loader = new FilesystemLoader(__DIR__ . '/../../../templates/twig');
+        $this->renderer = new Environment($loader, [
+            'debug' => true, // set to false in production
+            'cache' => __DIR__  . '/../../../tmp/cache', // set to a proper path in production
+        ]);
+    }
+
+    public function renderView(string $template, array $data = []): string // deliberately different method name
+    {
+        return $this->renderer->render($template . '.twig', $data);
+    }
+}
+```
+
+Now, we are going to add the twig templates in `templates/twig` folder.
+
+```html
+<!--templates/twig/layouts/default.twig-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.red.min.css">
+
+    {% block styles %}{% endblock %}
+</head>
+
+<body>
+    {% include 'partials/header.twig' %}
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include 'partials/footer.twig' %}
+</body>
+
+</html>
+
+<!--templates/twig/partials/header.twig-->
+<header class="container">
+    <a href="/" class="logo">Home</a>
+    <a href="/about">About Us</a>
+</header>
+
+<!--templates/twig/partials/footer.twig-->
+<footer class="container">
+    <center>
+        &copy; {{ "now"|date("Y") }} All Rights Reserved
+    </center>
+</footer>
+
+<!--templates/twig/home/index.twig-->
+{% extends 'layouts/default.twig' %}
+
+{% block content %}
+Welcome to <span class="twig">Twig</span>!
+{% endblock %}
+
+{% block styles %}
+<style>
+    .twig {
+        color: lime;
+    }
+</style>
+{% endblock %}
+
+<!--templates/twig/about/index.twig-->
+{% extends 'layouts/default.twig' %}
+
+{% block content %}
+Welcome to <span class="twig">Twig</span> About Us Page!
+{% endblock %}
+
+{% block styles %}
+<style>
+    .twig {
+        color: green;
+    }
+</style>
+{% endblock %}
+```
+
+Great. Now, let's change service locator to use TwigRenderer instead of PlatesRenderer.
+
+```php
+    // ...
+
+    private function createService(string $serviceName)
+    {
+        switch ($serviceName) {
+            case 'view':
+                // return new PlatesRenderer();
+                return new TwigRenderer(); # now we are returning twig renderer instead
+            default:
+                throw new \Exception("Service {$serviceName} not found");
+        }
+    }
+```
+
+Go and check the browser, you should see an error saying "Call to undefined method App\Library\View\TwigRenderer::render()". This is because all our controllers use `render` method and not `renderView`. So, go back and change `renderView` to `render` in TwigRenderer and the error should be gone now. BUT... WHY DID I DELIBERATELY USE renderView to begin with?
+
 But there is a minor issue. What if you create a new Renderer (say MustacheRenderer to use mustace template engine) and mistakenly add renderView method instead of render? You can either replace render with renderView method in all controllers or change renderView to render in the newly created Renderer. But, you can avoid this mistake early while coding by having something called Contracts (Interfaces in PHP).
 
 ### Contracts (Interfaces)
