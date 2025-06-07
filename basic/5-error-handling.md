@@ -216,7 +216,7 @@ Your application's code should not contain configuration that changes between en
 
 The .env file is meant to be stored on the server but never committed to your version control (like Git). This prevents sensitive information like database passwords or API keys from being exposed in your repository. You'll typically commit a .env.example file as a template for other developers.
 
-So, let's refactor our application to use .env files. We'll use a very popular package that can read from .env files. I am going to install `dikki/dotenv` (my own package that I ripped from CodeIgniter 4's Dotenv class and launched as a composer package). You can use `vlucas/phpdotenv` instead if you like. It's a very popular package and I have used it in many projects.
+So, let's refactor our application to use .env files. We'll use a very popular package that can read from .env files. I am going to install `dikki/dotenv` (my own package that I ripped from CodeIgniter 4's Dotenv class and launched as a composer package). You can use `vlucas/phpdotenv` or `symfony/dotenv` instead if you like. They are very popular packages and I have used them both many projects.
 
 In your project root, run:
 

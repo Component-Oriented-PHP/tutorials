@@ -18,8 +18,7 @@ I have brought major changes to the original tutorial, even adding a few new cha
 - [Dispatching to a Class](./6-dispatching-to-a-class.md)
 - [Templates](./7-templates.md)
 - [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
-- [Configuration](./9-configuration.md)
-- Helpers
+- [Configuration and Helpers](./9-configuration.md)
 - Markdown Parsing
 - Dynamic Pages
 - Frontend
