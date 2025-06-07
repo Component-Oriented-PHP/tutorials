@@ -171,10 +171,10 @@ HOWEVER... that's not the biggest issue right now. You may ask, that we covered 
 
 Let's see how we can handle configurations via DI.
 
-Create two files called `./src/Library/Service/PHPConfigFetcher.php` and `./src/Library/Service/ConfigInterface.php`. ConfigInterface is there to ensure that just in case you want to use ini or yaml files for configuration, you can just create another library that implements the interface.
+Create two files called `./src/Library/Config/PHPConfigFetcher.php` and `./src/Library/Config/ConfigInterface.php`. ConfigInterface is there to ensure that just in case you want to use ini or yaml files for configuration, you can just create another library that implements the interface.
 
 ```php
-// src/Library/Service/ConfigInterface.php
+// src/Library/Config/ConfigInterface.php
 <?php
 
 declare(strict_types=1);
@@ -186,7 +186,7 @@ interface ConfigInterface
     public function get(string $key): mixed;
 }
 
-// src/Library/Service/PHPConfigFetcher.php
+// src/Library/Config/PHPConfigFetcher.php
 <?php
 
 declare(strict_types=1);
