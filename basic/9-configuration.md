@@ -167,7 +167,7 @@ Now, we can use `config('app.name')` in our controllers.-
 
 But wait... it did not solve the issue of having to write `config('app.name')` in every controller. So why did this? Well, it seems useless right now, but we can use it in front controller to access routes like config('routes') and dependencies like config('dependencies') instead of having to include the respective files.
 
-HOWEVER... that's not the biggest issue right now. You may ask, that we covered DI in last lesson. So, should we not be using Container to handle config values? Yes, we should. My purpose of creating a helper was to demonstrate how you can have your own magic if you want. But I am not a magic lover. I prefer explicitness, so shoud you. We are not going to use config function ever in the app, but rather rely on our DI.
+However, that's not the biggest issue right now. You may ask, that we covered DI in last lesson. So, should we not be using Container to handle config values? Yes, we should. My purpose of creating a helper was to demonstrate how you can have your own magic if you want. But I am not a magic lover. I prefer explicitness, so should you. Now, I won't be using config function in the app, but rather rely on our DI. However, I am not stopping you from using it.
 
 Let's see how we can handle configurations via DI.
 
