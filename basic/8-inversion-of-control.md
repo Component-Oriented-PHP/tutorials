@@ -140,6 +140,7 @@ class TwigRenderer
 Now, we are going to add the twig templates in `templates/twig` folder.
 
 ```html
+{% raw %}
 <!--templates/twig/layouts/default.twig-->
 <!DOCTYPE html>
 <html lang="en">
@@ -208,6 +209,8 @@ Welcome to <span class="twig">Twig</span> About Us Page!
     }
 </style>
 {% endblock %}
+
+{% endraw %}
 ```
 
 Great. Now, let's change service locator to use TwigRenderer instead of PlatesRenderer.
