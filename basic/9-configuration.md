@@ -33,6 +33,7 @@ Now, let's take a practical scenario. You see how our view files have titles? Th
 Let's first modify the twig layout file.
 
 ```twig
+{% raw %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -42,6 +43,7 @@ Let's first modify the twig layout file.
 
     {% block styles %}{% endblock %}
 </head>
+{% endraw %}
 ```
 
 Check in the browser if the site name shows up. It does? Good job. Go get some candy 🍭.
@@ -49,6 +51,7 @@ Check in the browser if the site name shows up. It does? Good job. Go get some c
 Now now, we know that view files MUST NOT BE responsible for having hard coded values. Controllers are the ones responsible for handling data. So, instead we should use a variable (e.g. site_name) in our view files while passing the value for that variable in our controller. Let's do that.
 
 ```twig
+{% raw %}
 // templates/twig/layouts/default.twig
 <head>
     <meta charset="UTF-8">
@@ -59,6 +62,7 @@ Now now, we know that view files MUST NOT BE responsible for having hard coded v
 
     {% block styles %}{% endblock %}
 </head>
+{% endraw %}
 ```
 
 ```php
@@ -359,6 +363,7 @@ class TwigRenderer implements RendererInterface
 Refactor the layout view file to use the new variable (i.e. `app.name`).
 
 ```twig
+{% raw %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -368,6 +373,7 @@ Refactor the layout view file to use the new variable (i.e. `app.name`).
 
     {% block styles %}{% endblock %}
 </head>
+{% endraw %}
 ```
 
 Congrats... we've got a working configuration setup now.
