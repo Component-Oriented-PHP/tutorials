@@ -42,17 +42,21 @@ class HomeController
 }
 ```
 
-Now, if you have thoroughly gone through all previous chapters, especially DI, you may ask, why the heck are we using HtmlResponse directly? What if we are to replace `laminas/diactoros` with some other package? Wouldn't we need to replace all instances of HtmlResponse (or for that matter JsonResponse or RedirectResponse of Laminas Diactoros package)? Yes... and that's troublesome.
+Now, if you have thoroughly gone through all previous chapters, especially DI, you may ask, why the heck are we using HtmlResponse directly? What if we are to replace `laminas/diactoros` with some other package? Wouldn't we need to replace all instances of HtmlResponse (or for that matter JsonResponse or RedirectResponse of Laminas Diactoros package)?
 
 And, isn't that inconsistent with everything I've been teaching you so far, especially how controllers should not know what package they are using to get job done and those packages should be provided to the controllers from outside? Throughout this tutorial, we've been obsessing over abstractions and dependency injection. We inject RendererInterface instead of hardcoding a template engine. We use PageFetcher as a service instead of writing markdown logic in controllers. But here? We're directly instantiating HtmlResponse like it's nobody's business.
 
 This is breaking our own rules. We're tightly coupling our controller to a specific HTTP library, which means our controllers highly depend on Laminas Diactoros package only. It just looks inconsistent with the rest of our codebase. If someone reads our code, they'll see beautiful abstractions everywhere and then... boom, `new HtmlResponse()` scattered around like we forgot what we were doing.
 
-But, first and foremost, there is no need to ever replace laminas diactoros with any other package since it is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, you can skip this section and move on to the section where I have covered HTTP Requests and HTTP responses and Middlewares. However, you can continue reading if you want to know more about this.
+Now, **from a purely practical standpoint, you might never need to replace Laminas Diactoros - it's mature, stable, and PSR-7 compliant. So using HtmlResponse directly won't hurt you in most real applications.**
 
-## Making Controllers Consistent With Our Approach
+So technically, there is no need to ever replace laminas diactoros with any other package . It is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, you can skip this section and move on to the section where I have covered HTTP Requests and HTTP responses and Middlewares. However, you can continue reading if you want to know more about this.
 
-Now, this is probably the only chapter in the whole tutorial that is structured with subheadings, otherwise I have kept the flow natural everywhere else. This is because I am teaching here three different approaches you can take to solve the inconsistency in controllers and our codebase.
+## Making Controllers Consistent With Our Approach (OPTIONAL)
+
+This section is entirely optional and feel free to skip to the next section instead if you want.
+
+This is probably the only chapter in the whole tutorial that is structured with proper subheadings, otherwise I have kept the flow natural everywhere else. This is because I am teaching here three different approaches you can take to solve the inconsistency in controllers and our codebase.
 
 ### Approach 1: AbstractController
 
@@ -473,7 +477,7 @@ use App\Library\View\TwigRenderer;
 use App\Service\Markdown\LeagueMarkdownParser;
 use App\Service\Markdown\MarkdownParserInterface;
 use App\Service\PageFetcher;
-use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ResponseInterface; // <-- remove this after experimentation
 
 return [
     RendererInterface::class => TwigRenderer::class,
@@ -487,7 +491,7 @@ return [
 
     CustomResponseInterface::class => CustomResponse::class
 
-    ResponseInterface::class => \Laminas\Diactoros\Response::class
+    ResponseInterface::class => \Laminas\Diactoros\Response::class // <-- remove this after experimentation
 ];
 ```
 
@@ -495,11 +499,171 @@ Go check the browser. You will see that "Hello World is present in the response 
 
 So, the real issues are basically (a) the injected response might have existing data that interferes (b) we're using a single "response" to create many different responses, which defeats the purpose of injection (c) when you call `$this->response->withStatus(404)`, you're essentially using the response as a factory anyway
 
-Enough theory for now... go refactor your HomeController.php:
+Enough theory for now... go refactor your PageController.php to make use of ResponseFactoryInterface and StreamFactoryInterface.
 
 ```php
+// src/Controller/PageController.php
+<?php
 
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\PageFetcher;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+
+class PageController
+{
+
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private RendererInterface $view,
+        private ResponseFactoryInterface $responseFactory,
+        private StreamFactoryInterface $streamFactory
+    ) {
+    }
+
+    public function show(ServerRequestInterface $request): ResponseInterface
+    {
+        $slug = $request->getAttribute('slug');
+
+        $page = $this->pageFetcher->fetchSingle($slug);
+
+        if (!$page) {
+            $html = $this->view->render('404');
+            $stream = $this->streamFactory->createStream($html);
+
+            return $this->responseFactory->createResponse(404)->withBody($stream);
+        }
+
+        // separated for clarity and readability
+        $html = $this->view->render('page/show', [
+            'title' => $page['title'],
+            'description' => $page['description'],
+            'page' => $page
+        ]);
+
+        $stream = $this->streamFactory->createStream($html);
+
+        return $this->responseFactory->createResponse(200)->withBody($stream);
+    }
+
+}
+
+// config/dependencies.php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\Http\CustomResponse;
+use App\Library\Http\CustomResponseInterface;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use App\Service\Markdown\LeagueMarkdownParser;
+use App\Service\Markdown\MarkdownParserInterface;
+use App\Service\PageFetcher;
+use Laminas\Diactoros\ResponseFactory;
+use Laminas\Diactoros\StreamFactory;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+        // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class,
+
+    MarkdownParserInterface::class => LeagueMarkdownParser::class,
+
+    PageFetcher::class => PageFetcher::class,
+
+    CustomResponseInterface::class => CustomResponse::class,
+
+    ResponseFactoryInterface::class => ResponseFactory::class,
+    StreamFactoryInterface::class => StreamFactory::class,
+];
 ```
+
+Ok... a lot is going on here. Let me explain each part of the code. It seems complex and hard work as compared to the previous two approaches I have discussed (and let me tell you again: you are free to use any of the three approaches you feel comfortable with, no pressure to use this one).
+
+- Notice what we are importing in the constructor other than PageFetcher and RendererInterface. That's the other two additional dependencies: ResponseFactoryInterface and StreamFactoryInterface.
+  - You already know what that means: PageController screams that it now relies on ResponseFactoryInterface and StreamFactoryInterface. DI Container looks at the registered services and injects Laminas\Diactoros\ResponseFactory and Laminas\Diactoros\StreamFactory into PageController.
+
+- Next up, in the show method
+  - we fetch slug of the page to render from the attribute of the request object
+  - we use our PageFetcher service to get the page data
+  - if page does not exist
+    - we are using the RendererInterface to get html string for a 404 page
+    - then we are passing this html string to our StreamFactory to create a stream object required by the ResponseFactory to generate Response
+  - if page exists we are doing the same thing, just rendering a different twig template and passing different status code (200 in this case, 404 if page did not exist)
+
+Let me explain how StreamFactory and ResponseFactory actually work.
+
+The `StreamFactoryInterface` is responsible for creating PSR-7 stream objects. In HTTP responses, the body content MUST be wrapped in a stream object rather than being a plain string. But why does it only want a stream object and not a plain string? Well, to put it simply, if you use strings, the entire content must be loaded into memory at once. A 2GB video file would consume 2GB of RAM, and with multiple concurrent users, you'd quickly exhaust server memory. Streams on the other hand load content on-demand in small chunks (typically 8KB), so memory usage remains constant regardless of file size (thus, prevent memory exhaustion/server crashes). Plus, HTTP supports sending data in chunks rather than waiting for the complete response, improving user experience and server efficiency (and since they do, why not use Streams?). Streams also, provide explicit control over file handles and other system resources and can wrap various data sources (files, memory, network connections, temporary storage) while strings can only be strings.
+
+Anyway, the Laminas implementation of StreamFactoryInterface looks something like this:
+
+```php
+// illustrative code only
+
+// What happens when you call:
+$stream = $this->streamFactory->createStream($html);
+
+// Internally, Laminas StreamFactory does something like:
+class StreamFactory implements StreamFactoryInterface
+{
+    public function createStream(string $content = ''): StreamInterface
+    {
+        $resource = fopen('php://memory', 'r+');
+        fwrite($resource, $content);
+        rewind($resource);
+        
+        return new Stream($resource);
+    }
+}
+```
+
+The stream here acts as a wrapper around the actual content,providing methods like getContents() [gets full content as string], read() [reads specific number of bytes], write() [writes content to the stream], and rewind() [resets the stream pointer to the beginning].
+
+Moving on, the `ResponseFactoryInterface` creates fresh response objects with the specified status code like this:
+
+```php
+// illustrative code only
+
+// What happens when you call:
+$response = $this->responseFactory->createResponse(404);
+
+// Internally, Laminas ResponseFactory does something like:
+class ResponseFactory implements ResponseFactoryInterface
+{
+    public function createResponse(int $code = 200, string $reasonPhrase = ''): ResponseInterface
+    {
+        return new Response(
+            'php://memory',  // empty body stream
+            $code,           // status code
+            []               // empty headers array
+        );
+    }
+}
+```
+
+Notice our PageController. ResponseFactoryInterface gives us a clean, fresh response object that you can then modify using the immutable (not able to be changed) methods:
+
+```php
+// illustrative code only
+$response = $this->responseFactory->createResponse(200)
+    ->withHeader('Content-Type', 'text/html')
+    ->withHeader('Cache-Control', 'no-cache')
+    ->withBody($stream);
+```
+
+That's it. That's how we can use ResponseFactoryInterface and StreamFactoryInterface in our controllers for better separation.
+
+Now, we can refactor our controllers for better error handling and separation, but I will leave all that for the advacned tutorial.
 
 ## HTTP Requests and Responses
 
