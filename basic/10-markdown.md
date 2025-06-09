@@ -927,6 +927,12 @@ class PageController
 }
 ```
 
-And... that's it. You have a working application now. Go check. I am not going to explain what changed in controllers because you can easily figure it out (I believe in you; I am not being lazy or anything, I can easily cover a few points covering the changes given I have already written an extensive tutorial. You need to learn HOW TO THINK before you learn HOW TO CODE A FEATURE IN PHP. That's what I have been trying to teach you through this tutorial. Hope it pays off!)
+And... that's it. You have a working application now. Go check it out!
+
+I've intentionally left the controller changes for you to analyze. Take a moment to compare the before and after code - you'll notice how much cleaner and more focused each controller became once we extracted the PageFetcher service.
+
+This is exactly the kind of architectural thinking I've been trying to teach throughout this tutorial: recognizing patterns, identifying opportunities for abstraction, and building maintainable systems. The code changes here follow the same principles we've applied throughout - can you spot them?
+
+If you get stuck, don't worry - the important thing is developing that analytical mindset. That's what separates good developers from great ones. I want you to learn HOW TO THINK before you learn HOW TO CODE.
 
 In the next chapter, I will cover one last thing before the wrapup... [responses](./11-responses.md).
