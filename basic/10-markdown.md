@@ -848,7 +848,7 @@ foreach ($dependencies as $key => $value) {
 }
 ```
 
-However, even though this setup works, let's make it more efficient...
+Even though we could refactor it, I will keep it as is for now. Will cover better approaches in advanced turorial.
 
 Now that this is clear, edit the controllers to make use of the PageFetcher service.
 
