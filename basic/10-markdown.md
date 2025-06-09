@@ -39,21 +39,23 @@ There are many markdown parsers available on packagist. We are going to use [Lea
 
 Run `composer require league/commonmark symfony/yaml` to install the the commonmark package and symfony/yaml package to parse front matter.
 
-Now, before I proceed, you need to know something about the league commonmark library. First, it comes with lots of inbuilt extensions that we need to enable to get it to work for our use-case. Second, we cannot do this directly in controllers since (a) it will clutter the controller we use it in (b) we may need markdown parsing in more than one controller. So, we need to create a MarkdownParser service class to avoid code duplication at multiple places.
+Now, before I proceed, you need to know something about the league commonmark library. First, it comes with lots of inbuilt extensions that we need to enable to get it to work for our use-case. Second, we cannot do this directly in controllers since (a) it will clutter the controller we use it in (b) we may need markdown parsing in more than one controller. So, we need to create a LeagueMarkdownParser service class to avoid code duplication at multiple places.
 
 > Did you notice something above? I said "MarkdownParser service" class, not a library. You need to be aware of the distinction between a library and a service. A service is meant to contain business logic (e.g., how many items to show per page) while a library does not. A library is simply meant to achieve some task (like returning items), but how many it returns is not the library's responsibility. It will ask for the quantity, and the service class will be the one to tell the library to return a particular number of items.
-> So, in our case, the league/commonmark package is the library—a generic tool for parsing Markdown. Our MarkdownParser class is the service—it will contain our application's specific logic by deciding which extensions to enable and how to configure the library to fit our exact needs
+> So, in our case, the league/commonmark package is the library—a generic tool for parsing Markdown. Our LeagueMarkdownParser class is the service—it will contain our application's specific logic by deciding which extensions to enable and how to configure the library to fit our exact needs
 
 But before we proceed, I urge you to go through the commonmark library documentation, so that it becomes easier to understand what I am doing here (don't ask chatgpt for how to use league commonmark, go read the docs).
 
-Create a new file `src/Service/MarkdownParser.php` and add the following code:
+## Creating Our Markdown Parser
+
+Create a new file `src/Service/Markdown/LeagueMarkdownParser.php` and add the following code:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Service;
+namespace App\Service\Markdown;
 
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Attributes\AttributesExtension;
@@ -64,7 +66,7 @@ use League\CommonMark\Extension\FrontMatter\FrontMatterExtension;
 use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
 use League\CommonMark\MarkdownConverter;
 
-class MarkdownParser
+class LeagueMarkdownParser
 {
     private MarkdownConverter $markdownConverter;
 
@@ -116,7 +118,7 @@ class MarkdownParser
 }
 ```
 
-So, what happened in the MarkdownParser service class?
+So, what happened in the LeagueMarkdownParser service class?
 
 - First, we imported all the extensions we needed.
   - AttributesExtension is used to add attributes to HTML tags. (like we can add `id` and `class` attributes to HTML tags): [see full details in docs](https://commonmark.thephpleague.com/2.7/extensions/attributes/)
@@ -160,16 +162,16 @@ The `$content` variable will just be a parsed html string.
 
 So, in order to get a unified array like `['title'=>'About Us', 'description'=>'Learn more about this site', 'content'=>'<p>This is an about us written in markdown.</p>']`, I created an empty array called `$data` and used a foreach loop to add each front matter key-value pair to it, then added the parsed HTML content under the 'content' key.
 
-## Solving the Issues
+### Solving the Issues
 
-Can you find the issues with our MarkdownParser service class? No? Give yourself a slap and think again.
+Can you find the issues with our LeagueMarkdownParser service class? No? Give yourself a slap and think again.
 
 Found them (yes, 'them', not 'it')? Good. I believe in you.
 
 There are two crucial issues:
 
 1. We are storing configurations in the class itself, which is not a good idea as we have discussed in the last lesson only.
-2. What if we ever wanted to replace `league/commonmark` with another markdown parser? We would have to change the code in the MarkdownParser service class.
+2. What if we ever wanted to replace `league/commonmark` with another markdown parser? We would have to change the code in the LeagueMarkdownParser service class.
 
 So, how do we solve these issues? Think again my boy, I keep telling you to think and come up with solutions on your own. Passively reading it won't do any good.
 
@@ -200,19 +202,19 @@ Now remember what we did in configurations chapter? We did two things: create a 
 You're free to use the config helper if you want, but I suggest you use the library since we worked so hard to learn DI.
 
 ```php
-// src/Service/MarkdownParser.php
+// src/Service/Markdown/LeagueMarkdownParser.php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Service;
+namespace App\Service\Markdown;
 
 use App\Library\Config\ConfigInterface;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
 use League\CommonMark\MarkdownConverter;
 
-class MarkdownParser
+class LeagueMarkdownParser
 {
     private MarkdownConverter $markdownConverter;
 
@@ -291,22 +293,22 @@ return [
 
 What did we do here? We simply moved the logic to decide which extention to use, to the config file. Notice how we nested the original configuration under a 'config' key? This is because the Environment class expects this structure, while our extensions are a separate concern that our service handles.
 
-Now, change the MarkdownParser service class:
+Now, change the LeagueMarkdownParser service class:
 
 ```php
-// src/Service/MarkdownParser.php
+// src/Service/Markdown/LeagueMarkdownParser.php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Service;
+namespace App\Service\Markdown;
 
 use App\Library\Config\ConfigInterface;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
 use League\CommonMark\MarkdownConverter;
 
-class MarkdownParser
+class LeagueMarkdownParser
 {
     private MarkdownConverter $markdownConverter;
 
@@ -350,7 +352,7 @@ class MarkdownParser
 
 See how clean our parser service is now?
 
-But but but... yes, we did not solve the issue completely. Now you may not see it in its entirety, but the thing is that we almost always need a few extensions for the Parser to work: the CommonMarkCoreExtension and the FrontMatterExtension (for our use-case). So what do we do? Well, we go for a middle-ground. We import the CommonMarkCoreExtension and the FrontMatterExtension in the MarkdownParser service class, and keep the other not-to-important extensions to the config file. (Yeah, yeah... it's annoying to not teach you everything in one go, but I want you to develop problem thinking skills!)
+But but but... yes, we did not solve the issue completely. Now you may not see it in its entirety, but the thing is that we almost always need a few extensions for the Parser to work: the CommonMarkCoreExtension and the FrontMatterExtension (for our use-case). So what do we do? Well, we go for a middle-ground. We import the CommonMarkCoreExtension and the FrontMatterExtension in the LeagueMarkdownParser service class, and keep the other not-to-important extensions to the config file. (Yeah, yeah... it's annoying to not teach you everything in one go, but I want you to develop problem thinking skills!)
 
 Let's make the final round of changes to solve our issue #1 (configuration):
 
@@ -382,12 +384,12 @@ return [
     ]
 ];
 
-// src/Service/MarkdownParser.php
+// src/Service/Markdown/LeagueMarkdownParser.php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Service;
+namespace App\Service\Markdown;
 
 use App\Library\Config\ConfigInterface;
 use League\CommonMark\Environment\Environment;
@@ -396,7 +398,7 @@ use League\CommonMark\Extension\FrontMatter\FrontMatterExtension;
 use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
 use League\CommonMark\MarkdownConverter;
 
-class MarkdownParser
+class LeagueMarkdownParser
 {
     private MarkdownConverter $markdownConverter;
 
@@ -408,7 +410,9 @@ class MarkdownParser
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new FrontMatterExtension());
         foreach ($config['extensions'] as $extension) {
-            $environment->addExtension(new $extension());
+            if (class_exists($extension)) {
+                $environment->addExtension(new $extension());
+            }
         }
         $this->markdownConverter = new MarkdownConverter($environment);
     }
@@ -438,6 +442,71 @@ class MarkdownParser
 }
 ```
 
-However, if you try to use this parser service, you'll get an error saying MarkdownParser expects one argument, but got 0. Be patient, we will solve it soon.
+However, if you try to use this parser service, you'll get an error saying LeagueMarkdownParser expects one argument, but got 0. You can easily solve it by registering the LeagueMarkdownParser service in `config/dependencies.php`, but be patient, we will solve it soon.
 
-Anyway, let's move on to the next issue.
+Anyway, let's move on to the next issue: what happens if we ever want to replace `league/commonmark` with another markdown parser? We CAN potentially change the code in the LeagueMarkdownParser service class, but then we will encounter the same issue that we learned about in templates chapter (remember, twig and plates?)
+
+So, yeah, we are going to create a MarkdownParserInterface and register it in DI config.
+
+Create a `src/Service/Markdown/MarkdownParserInterface.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service\Markdown;
+
+interface MarkdownParserInterface
+{
+    public function parse(string $markdown): array;
+}
+```
+
+Make sure that the LeagueMarkdownParser class implements the MarkdownParserInterface:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service\Markdown;
+
+use App\Library\Config\ConfigInterface;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\FrontMatter\FrontMatterExtension;
+use League\CommonMark\Extension\FrontMatter\Output\RenderedContentWithFrontMatter;
+use League\CommonMark\MarkdownConverter;
+
+class LeagueMarkdownParser implements MarkdownParserInterface
+{
+    // ... code remains the same
+}
+```
+
+Now, register the MarkdownParserInterface in `config/dependencies.php`:
+
+```php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use App\Service\Markdown\LeagueMarkdownParser;
+use App\Service\Markdown\MarkdownParserInterface;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class,
+
+    MarkdownParserInterface::class => LeagueMarkdownParser::class
+];
+```
+
+Okay, we have solved the second issue. How do we test if the current setup works? Well, let's implement dynamic pages on our site to see if it works and finish our basic application.
+
+## Dynamic Pages
