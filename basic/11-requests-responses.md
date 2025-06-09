@@ -147,9 +147,140 @@ Well, to be frank, in this tutorial we are doing neither. We are learning princi
 
 Just know that even if you use Laravel tomorrow, knowing why they made certain choices makes you a better developer who can work with the framework instead of just throwing code at it.RetryClaude can make mistakes. Please double-check responses.
 
-### Approach 2
+### Approach 2: Response Factory
 
-### Approach 3
+Now, if you did not know, PSR-17 defines standard factory interfaces for creating HTTP responses - ResponseFactoryInterface and StreamFactoryInterface. Laminas Diactoros implements these interfaces, which means we could use these standardized factories in our controllers instead of directly creating response objects (i.e. `new HtmlResponse()`). Our container can inject the Laminas implementations when these interfaces are requested.
+
+Before we get into coding, someone may ask, why can't we simply use `ResponseInterface` and make our container pass `\Laminas\Diactoros\Response` instead, and then use it to return responses? Well, theoretically we can do that but the simplest explanation (though it is more complex than this) I can give to avoid doing it is that `ResponseInterface` is not a service/library, but represents a Response object. On the other hand, the two factory interfaces are services. When we inject services via DI, we should be injecting things that do work for us (services), not data objects that represent state.
+
+- `ResponseInterface` = single, immutable response/data object that holds HTTP response information (with specific status, headers, and body)
+- `ResponseFactoryInterface`/`StreamFactoryInterface` = services that create response objects for us
+- `ResponseFactoryInterface` = A tool that can create many different response objects as needed
+
+Take a look below:
+
+```php
+// for example only
+// This would be weird - injecting a specific response instance
+public function __construct(ResponseInterface $response) {} 
+
+// This makes sense - injecting a factory that creates responses
+public function __construct(ResponseFactoryInterface $responseFactory) {}
+```
+
+The core issue though isn't whether ResponseInterface represents a "state" or "service" - it's that injecting a **single response instance** doesn't make sense when you need to create multiple different responses.
+
+What does "not being able to create multiple different responses" mean? Look at the below example:
+
+```php
+// for example only
+
+// This would be weird and problematic:
+class UserController
+{
+    public function __construct(
+        private ResponseInterface $response  // A single response instance?
+    ) {}
+    
+    public function show($id)
+    {
+        $user = $this->userService->find($id);
+        
+        // What do we do with this single $response instance?
+        // We need to return different responses based on the situation:
+        
+        if (!$user) {
+            // Need a 404 response
+            return ??? 
+        }
+        
+        if ($user->isBlocked()) {
+            // Need a 403 response  
+            return ???
+        }
+        
+        // Need a 200 response with user data
+        return ???
+    }
+    
+    public function update($id) 
+    {
+        // Need different responses here too:
+        // - 422 for validation errors
+        // - 200 for success
+        // - 404 if user not found
+        return ???
+    }
+}
+
+// Compare that mess with this clean factory approach:
+class UserController
+{
+    public function __construct(
+        private ResponseFactoryInterface $responseFactory,
+        private StreamFactoryInterface $streamFactory
+    ) {}
+    
+    public function show($id)
+    {
+        if (!$user) {
+            return $this->responseFactory->createResponse(404);
+        }
+        
+        // Create fresh response for success case
+        $body = $this->streamFactory->createStream(json_encode($user));
+        return $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'application/json')
+            ->withBody($body);
+    }
+}
+```
+
+You see the problem? **A single response instance can't handle all these different scenarios.** Why not? Because PSR-7 responses (here, ResponseInterface) are designed to be immutable, meaning methods like withStatus(), withHeader(), etc. don't modify the original response - they return a new instance entirely.
+
+```php
+// This is what actually happens:
+$originalResponse = $this->response;
+$newResponse = $originalResponse->withStatus(404); // Returns NEW instance
+
+// $originalResponse is unchanged!
+// $newResponse is a different object entirely
+```
+
+It's like the difference between being handed one pre-written letter (ResponseInterface) vs. being given a pen and paper to write different letters as needed (ResponseFactoryInterface). I hope that's clear.
+
+So if you inject a single response instance, you'd have this weird situation:
+
+```php
+// for example only
+class UserController
+{
+    public function __construct(
+        private ResponseInterface $response
+    ) {}
+    
+    public function show($id) 
+    {
+        // This creates a NEW response, doesn't modify the injected one
+        return $this->response->withStatus(404)->withHeader('Content-Type', 'text/plain');
+    }
+    
+    public function update($id)
+    {
+        // This ALSO creates a NEW response from the same original
+        // What if the original response already has a body from somewhere else?
+        return $this->response->withStatus(200)->withHeader('Content-Type', 'application/json');
+    }
+}
+```
+
+So, the real issues are: (a) the injected response might have existing data that interferes (b) we're using a single "response" to create many different responses, which defeats the purpose of injection (c) when you call `$this->response->withStatus(404)`, you're essentially using the response as a factory anyway
+
+Enough theory for now... go refactor your HomeController.php:
+
+```php
+
+```
 
 ## HTTP Requests and Responses
 
