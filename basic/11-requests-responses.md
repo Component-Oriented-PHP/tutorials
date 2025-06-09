@@ -274,6 +274,78 @@ class UserController
 }
 ```
 
+Now let's experiment with this real code in our app:
+
+```php
+// temporary code, remove after you're done
+
+// HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\PageFetcher;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private RendererInterface $view,
+        private ResponseInterface $response
+    ) {
+        $this->response->getBody()->write('Hello World!');
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+
+        $pages = $this->pageFetcher->fetchAll();
+
+        $html =($this->view->render('home/index', [
+            'title' => 'This is a title for Homepage!',
+            'pages' => $pages
+        ]));
+
+        $this->response->getBody()->write($html);
+
+        return $this->response;
+    }
+}
+
+// config/dependencies.php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use App\Service\Markdown\LeagueMarkdownParser;
+use App\Service\Markdown\MarkdownParserInterface;
+use App\Service\PageFetcher;
+use Psr\Http\Message\ResponseInterface;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class,
+
+    MarkdownParserInterface::class => LeagueMarkdownParser::class,
+
+    PageFetcher::class => PageFetcher::class,
+
+    ResponseInterface::class => \Laminas\Diactoros\Response::class
+];
+```
+
+Go check the browser. You will see that "Hello World is present in the response body. It was not overwritten. What if something like this happens such that some other part of the codebase has written something into the body and one of our controllers has written something else alongside? The response will contain both. That's a problem. (Now don't forget to undo our HomeController and dependencies.php config file).
+
 So, the real issues are: (a) the injected response might have existing data that interferes (b) we're using a single "response" to create many different responses, which defeats the purpose of injection (c) when you call `$this->response->withStatus(404)`, you're essentially using the response as a factory anyway
 
 Enough theory for now... go refactor your HomeController.php:
