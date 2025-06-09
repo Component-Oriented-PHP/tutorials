@@ -1,5 +1,6 @@
 ---
 previous: 7-templates
+next: 9-configurations
 ---
 
 # Inversion of Control (IoC): Service Locator and Dependency Injection
@@ -20,9 +21,12 @@ IoC is implemented in two ways: Service Locator and Dependency Injection. I am g
 
 Okay... so if you have used CodeIgniter 4 ever before, you know that it comes with a `Services.php` config class, where you define how a service (any library or business service class) is accessed by service('service_name'). This approach is Service Locator approach.
 
-Let's think about our scenario, we want to use twig or plates without removing PlatesRenderer or TwigRenderer (not yet created but we'll add it later). So, how can we access the PlatesRenderer or TwigRenderer class in controllers without explicitly calling an instance of either classes? Take a look at the following code:
+Let's think about our scenario, we want to use twig or plates without removing PlatesRenderer or TwigRenderer (not yet created but we'll add it later). So, how can we access the PlatesRenderer or TwigRenderer class in controllers without explicitly calling an instance of either classes?
+
+Make the following changes to HomeController:
 
 ```php
+// src/Controller/HomeController.php
 <?php
 
 declare(strict_types=1);

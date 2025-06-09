@@ -292,11 +292,118 @@ Now, you may ask, why did we move view to constructor? Because index is not the 
 
 Next question, why is PlatesRenderer private? Because it's not going to be used outside of this class. By making the $view property private, we are hiding the internal details of the controller. Other parts of our application don't need to know how the controller renders a view, just that it can.
 
-Now, also notice how both HomeController and AboutController have the same constructor code. What if we had 20 such controllers? One option to not repeat is to create an AbstractController (abstract class) that both HomeController and AboutController extend. AbstractController can have a method that returns PlatesRenderer (or any other renderer) and we can use it in HomeController and AboutController. However, we are not going to do that here. We are instead going to rely on dependency injection (be patient), which we will cover in the next chapter.
+Now, also notice how both HomeController and AboutController have the same constructor code. What if we had 20 such controllers? One option to not repeat is to create an AbstractController (abstract class) that both HomeController and AboutController extend. AbstractController can have a method that returns PlatesRenderer (or any other renderer) and we can use it in HomeController and AboutController. Though, we are not going to be using that much in this tutorial and instead be relying on dependency injection, which we will cover in the next chapter, I will show you how to setup and use a simple AbstractController implementation.
 
-However, you are free to use AbstractController approach if you are more comfortable with that.
+However, you are free to use AbstractController  approach if you are more comfortable with that than dependency injection.
 
-But you see, assume you have two controllers, AuthController and HomeController. In AbstractController, you have $this->view, and $this->session objects. Now, you will use $this->view in both the controllers, but HomeController won't need $this->session object. So, technically, what you're doing by using AbstractController is that even when a controller does not need a session object, it will still have access to $this->session. So, session is instantiated even though it is not needed.
+Create a new `./src/Controller/AbstractController.php` (you can name it anything else, like CI4 names it BaseController) file and add:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\PlatesRenderer;
+
+abstract class AbstractController
+{
+
+    protected PlatesRenderer $view;
+
+    public function __construct()
+    {
+        $this->view = new PlatesRenderer();
+    }
+
+    /**
+     * you can even have a separate method to render the view
+     */
+    protected function render(string $template, array $data = []): string
+    {
+        return $this->view->render($template, $data);
+    }
+
+    /**
+     * Or, a separate method to only return an instance of PlatesRenderer;
+     * but then it becomes something akin to a Service Locator (gonna cover it in IoC chapter)
+     */
+    protected function getView(): PlatesRenderer
+    {
+        return $this->view;
+    }
+}
+```
+
+Alright, now I need to explain what is happenning in the code above
+
+- Notice the word `abstract` which we used for this AbstractController but in not HomeController or AboutController. In PHP, the word `abstract` is used for classes that are not meant to be used directly, but are meant to be extended by other classes. That is, AbstractController cannot be instantiated directly - you cannot do `new AbstractController()`. It serves as a blueprint that other controllers (HomeController and AboutController for example) must extend.
+- Now move your attention to the `protected` keyword used for `$view` property as well as the methods. Why did we use protected and not public or private? First, not private because we want the property or methods to be accessible to our controllers only and obviously not public because we do not want them accessible anywhere but the child classes.
+- We have the same constructor logic here that was previously duplicated in HomeController and AboutController. Now this initialization happens once in the parent class.
+- Don't add all three ways of rendering view in HomeController and AboutController. Just add the one you prefer.
+
+Now, we can potentially do this in our controllers:
+
+```php
+// src/Controller/HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+class HomeController extends AbstractController
+{
+    public function index(ServerRequestInterface $request)
+    {
+        return new HtmlResponse($this->render('home/index', [
+            'title' => 'This is a title for Homepage'
+        ]));
+
+        /**
+         * or you can use the following method
+         * return new HtmlResponse($this->getView()->render('home/index', [
+         *     'title' => 'This is a title for Homepage'
+         * ]));
+         * or you can use the following method
+         * return new HtmlResponse($this->view->render('home/index', [
+         *     'title' => 'This is a title for Homepage'
+         * ]));
+         */
+    }
+}
+
+// src/Controller/AboutController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+class AboutController extends AbstractController
+{
+    public function index(ServerRequestInterface $request)
+    {
+        return new HtmlResponse($this->render('about/index', [
+            'title' => 'This is a title for About Us'
+        ]));
+
+        /**
+         * or you can use the following method
+         * return new HtmlResponse($this->getView()->render('about/index', [
+         *     'title' => 'This is a title for About Us'
+         * ]));
+         * or you can use the following method
+         * return new HtmlResponse($this->view->render('about/index', [
+         *     'title' => 'This is a title for About Us'
+         * ]));
+         */
+    }
+}
+```
+
+But you see there is a problem here. Assume you have two controllers, AuthController and HomeController. In AbstractController, you have `$this->view`, and `$this->session` objects. Now, you will use `$this->view` in both the controllers, but HomeController won't need `$this->session` object. So, technically, what you're doing by using AbstractController is that even when a controller does not need a session object, it will still have access to `$this->session`. So, session is instantiated even though it is not needed.
 
 This creates unnecessary overhead and violates the principle of "only take what you need." With dependency injection, AuthController would inject both view and session services, while HomeController would only inject the view service. Each controller gets exactly what it requires, nothing more, nothing less.
 
