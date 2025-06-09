@@ -513,4 +513,178 @@ Okay, we have solved the second issue. How do we test if the current setup works
 
 Now, you know that we will be using markdown files to store site pages. So that makes the current AboutController obsoltete. Remove the AboutController (or keep it if you want; but don't forget to deregister the /about route in `config/routes.php` then).
 
-Let's create a `src/Controller/PageController.php` to handle dynamic pages.
+Let's create a `src/Controller/PageController.php` controller and its `templates/twig/page/show.twig` view to handle dynamic pages.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\Markdown\MarkdownParserInterface;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+class PageController
+{
+
+    public function __construct(
+        private MarkdownParserInterface $markdown,
+        private RendererInterface $view
+    ) {
+    }
+
+    public function show(ServerRequestInterface $request): ResponseInterface
+    {
+        $slug = $request->getAttribute('slug');
+        $markdownFile = __DIR__ . '/../../content/' . $slug . '.md';
+
+        if (!file_exists($markdownFile)) {
+            return new HtmlResponse($this->view->render('404'));
+        }
+
+        $page = $this->markdown->parse(file_get_contents($markdownFile));
+
+        return new HtmlResponse($this->view->render('page/show', [
+            'title' => $page['title'],
+            'description' => $page['description'],
+            'page' => $page
+        ]));
+    }
+
+}
+```
+
+```twig
+<!-- templates/twig/page/show.twig -->
+{% raw %}
+{% extends 'layouts/default.twig' %}
+
+{% block content %}
+
+<h1>{{ page.title }}</h1>
+
+<p>{{ page.description }}</p>
+
+<article>
+    {{ page.content|raw }}
+</article>
+
+{% endblock %}
+{% endraw %}
+```
+
+Do not forget to add the routes.
+
+```php
+// config/routes.php
+<?php
+
+return [
+    // route name => [route method, route path, controller::method]
+    'home' => ['get', '/', '\App\Controller\HomeController::index'],
+    // 'about' => ['get', '/about', '\App\Controller\AboutController::index'],
+    'page' => ['get', '/{slug}', '\App\Controller\PageController::show'],
+];
+```
+
+So, what happened above?
+
+- in the page controller we created, the page controller screams/declares that it uses MarkdownParserInterface and the RendererInterface. It does not know or care which class implementing the said interfaces will be passed to it. The DI container we have setup checks `config/dependencies.php` for the interfaces and their implementations and wires them up, and during controller instantiation in our front controller, it passes the implementations to the controller.
+- We created a show method (which receives `$request` object from the front controller during method call)
+- In the show method, it fetches the value of passed slug to the route (e.g. "about" if a user visits <http://localhost:8080/about> path on our app).
+- We use this slug to see if a markdown file with that basename exists. If it does not, we simply return a 404 error response.
+- If it does, we use our markdown parse to parse the markdown file (after getting its contents as string; remember that method parse() in MarkdownParserInterface accepts a string)
+- The parsed markdown file is then passed to the view to render a HTML.
+- This HTML string is then used to generate response via HtmlResponse class instance.
+- If you pay attention to the show method, it expects a `ResponseInterface` as a return type. `]Laminas\Diactoros\Response\HtmlResponse` is an implementation of ResponseInterface, so are `\Laminas\Diactoros\Response\JsonResponse` and `\Laminas\Diactoros\Response\RedirectResponse` classes.
+- Now notice the twig template file we created. In the {{page.content|raw}} tag, we use the raw filter to output the parsed HTML string as it is. Because if we don't, Twig's automatic security feature will escape the HTML. This means instead of seeing a formatted paragraph, your users would see the actual HTML tags printed on the screen, like `<p>This is an about us written in markdown.</p>`."
+
+Go check the browser (don't forget to start the local server). Individual pages shoud work as expected (/about, /contact).
+
+Time to modify HomeController to display list of all pages. I am not going to complicate things for now by introducing pagination and stuff; let's leave that for the advanced tutorial.
+
+```php
+// src/Controller/HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\Markdown\MarkdownParserInterface;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function __construct(
+        private MarkdownParserInterface $markdown,
+        private RendererInterface $view
+    ) {
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+
+        $pages = glob(__DIR__ . '/../../content/*.md');
+
+        $data = [];
+        foreach ($pages as $page) {
+            $slug = basename($page, '.md');
+            $page = $this->markdown->parse(file_get_contents($page));
+            $data[] = [
+                'title' => $page['title'],
+                'description' => $page['description'],
+                'slug' => $slug
+            ];
+        }
+
+        return new HtmlResponse($this->view->render('home/index', [
+            'title' => 'This is a title for Homepage!',
+            'pages' => $data
+        ]));
+    }
+}
+```
+
+```twig
+<!-- src/templates/twig/home/index.twig -->
+{% raw %}
+{% extends 'layouts/default.twig' %}
+
+{% block content %}
+Welcome to <span class="twig">Twig</span>!
+
+<h2>Top Pages</h2>
+
+<ul>
+    {% for page in pages %}
+    <li><a href="/{{ page.slug }}">{{ page.title }}</a>: {{ page.description }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .twig {
+        color: lime;
+    }
+</style>
+{% endblock %}
+{% endraw %}
+```
+
+Now, let me explain the HomeController index method breifly. We used glob function to fetch all markdown files inside content dir. Then, we looped through them and parsed them one by one, and added their title, slug, and description to the `$data` array. Finally, we used the `$data` array to render the HTML template file. That's it.
+
+### Improving the Controllers
+
+While this much is enough to get job done, there is a minor problem. Let us assume that we ever wanted to expose an API endpoint to list pages and individual pages so that the API can be used in other apps (External; like a VueJS or Sveltekit frontend). Would we not need to create separate controllers and repeat the same code we just did here?
+
+So, what is a better approach to resolve such an issue? Of course... you are on the right track - we create a new PageFetcher service class to fetch pages. That way, we can use the same service in both current controller and API controllers if we ever needed to.
+
+Let's do that.
