@@ -6,17 +6,18 @@ I have brought major changes to the original tutorial, even adding a few new cha
 
 ## TOC
 
-- [Front Controller](./1-front-controller.md)
-- [Routing 1: Vanilla Router](./2-vanilla-router.md)
-- [Composer](./3-composer.md)
-- [Routing 2: Installing a Routing Package](./4-routing-package.md)
-- [Error Handling](./5-error-handling.md)
-- [Dispatching to a Class](./6-dispatching-to-a-class.md)
-- [Templates](./7-templates.md)
-- [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
-- [Configuration and Helpers](./9-configuration.md)
-- [Markdown Parsing and Dynamic Pages](./10-markdown.md)
-- [Wrapup](./11-wrapup.md)
+1. [Front Controller](./1-front-controller.md)
+2. [Routing 1: Vanilla Router](./2-vanilla-router.md)
+3. [Composer](./3-composer.md)
+4. [Routing 2: Installing a Routing Package](./4-routing-package.md)
+5. [Error Handling](./5-error-handling.md)
+6. [Dispatching to a Class](./6-dispatching-to-a-class.md)
+7. [Templates](./7-templates.md)
+8. [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
+9. [Configuration and Helpers](./9-configuration.md)
+10. [Markdown Parsing and Dynamic Pages](./10-markdown.md)
+11. [Responses](./11-responses.md)
+12. [Wrapup](./12-wrapup.md)
 
 ## Scope of Application We Are Building in This Tutorial
 

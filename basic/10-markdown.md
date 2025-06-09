@@ -39,7 +39,7 @@ There are many markdown parsers available on packagist. We are going to use [Lea
 
 Run `composer require league/commonmark symfony/yaml` to install the the commonmark package and symfony/yaml package to parse front matter.
 
-Now, before I proceed, you need to know something about the league commonmark library. First, it comes with lots of inbuilt extensions that we need to enable to get it to work for our use-case. Second, we cannot do this directly in controllers since (a) it will clutter the controller we use it in (b) we may need markdown parsing in more than one controller. So, we need to create a LeagueMarkdownParser service class to avoid code duplication at multiple places.
+Now, before I proceed, you need to know something about the league commonmark library. First, it comes with lots of inbuilt extensions that we need to enable to get it to work for our use-case. Second, we cannot do this directly in controllers since (a) it will clutter the controller we use it in (b) we may need markdown parsing in more than one controller (e.g. PageController to show individual pages and in HomeController to show a list of pages). So, we need to create a LeagueMarkdownParser service class to avoid code duplication at multiple places.
 
 > Did you notice something above? I said "MarkdownParser service" class, not a library. You need to be aware of the distinction between a library and a service. A service is meant to contain business logic (e.g., how many items to show per page) while a library does not. A library is simply meant to achieve some task (like returning items), but how many it returns is not the library's responsibility. It will ask for the quantity, and the service class will be the one to tell the library to return a particular number of items.
 > So, in our case, the league/commonmark package is the library—a generic tool for parsing Markdown. Our LeagueMarkdownParser class is the service—it will contain our application's specific logic by deciding which extensions to enable and how to configure the library to fit our exact needs
@@ -510,3 +510,7 @@ return [
 Okay, we have solved the second issue. How do we test if the current setup works? Well, let's implement dynamic pages on our site to see if it works and finish our basic application.
 
 ## Dynamic Pages
+
+Now, you know that we will be using markdown files to store site pages. So that makes the current AboutController obsoltete. Remove the AboutController (or keep it if you want; but don't forget to deregister the /about route in `config/routes.php` then).
+
+Let's create a `src/Controller/PageController.php` to handle dynamic pages.
