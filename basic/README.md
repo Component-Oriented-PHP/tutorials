@@ -1,7 +1,3 @@
----
-next: 1-front-controller
----
-
 # Basic Tutorial
 
 The basic tutorial is more of a modern rewrite of the [original tutorial by Patrick Louys & contributors](https://github.com/PatrickLouys/no-framework-tutorial). You will find more exciting stuff in the advanced tutorial. Start below.
@@ -19,9 +15,12 @@ I have brought major changes to the original tutorial, even adding a few new cha
 - [Templates](./7-templates.md)
 - [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
 - [Configuration and Helpers](./9-configuration.md)
-- [Markdown Parsing](./10-markdown.md)
-- Dynamic Pages
-- Frontend
+- [Markdown Parsing and Dynamic Pages](./10-markdown.md)
+- [Wrapup](./11-wrapup.md)
+
+## Scope of Application We Are Building in This Tutorial
+
+The goal is to teach you how to glue components together to build applications. We will be building a very simple application where in you can write content as markdown, render list of pages on homepage, and view each page. That's it.
 
 ## Notes
 

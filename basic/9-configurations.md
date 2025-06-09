@@ -378,4 +378,4 @@ Refactor the layout view file to use the new variable (i.e. `app.name`).
 
 Congrats... we've got a working configuration setup now.
 
-In the next chapter, I will cover [Markdown Parsing](./10-markdown.md) for our application's pages.
+In the next chapter, I will cover [Markdown Parsing and Dynamic Pages](./10-markdown.md) for our application.
