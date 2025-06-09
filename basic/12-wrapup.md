@@ -15,6 +15,7 @@ Take a moment to appreciate what you've learned:
 - **Routing systems** that can handle complex applications
 - **Template engines** for clean separation of concerns
 - **Markdown parsing** with configurable, extensible architecture
+- **HTTP Requests, Responses and Middlewares**
 
 You now understand the building blocks that frameworks are made of. When you do use a framework, you'll appreciate what it's doing under the hood.
 

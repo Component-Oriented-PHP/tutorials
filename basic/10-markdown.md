@@ -1,6 +1,6 @@
 ---
 previous: 9-configurations
-next: 11-wrapup
+next: 11-requests-responses
 ---
 
 # Markdown Parsing
@@ -642,7 +642,7 @@ So, what happened above?
 - The parsed markdown file is then passed to the view to render a HTML.
 - This HTML string is then used to generate response via HtmlResponse class instance.
 - If you pay attention to the show method, it expects a `ResponseInterface` as a return type. `]Laminas\Diactoros\Response\HtmlResponse` is an implementation of ResponseInterface, so are `\Laminas\Diactoros\Response\JsonResponse` and `\Laminas\Diactoros\Response\RedirectResponse` classes.
-- Now notice the twig template file we created. In the {{page.content|raw}} tag, we use the raw filter to output the parsed HTML string as it is. Because if we don't, Twig's automatic security feature will escape the HTML. This means instead of seeing a formatted paragraph, your users would see the actual HTML tags printed on the screen, like `<p>This is an about us written in markdown.</p>`."
+- Now notice the twig template file we created. In the `{{page.content|raw}}` tag, we use the raw filter to output the parsed HTML string as it is. Because if we don't, Twig's automatic security feature will escape the HTML. This means instead of seeing a formatted paragraph, your users would see the actual HTML tags printed on the screen, like `<p>This is an about us written in markdown.</p>`."
 
 Go check the browser (don't forget to start the local server). Individual pages shoud work as expected (/about, /contact).
 
