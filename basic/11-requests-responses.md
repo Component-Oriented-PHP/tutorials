@@ -147,15 +147,9 @@ Well, to be frank, in this tutorial we are doing neither. We are learning princi
 
 Just know that even if you use Laravel tomorrow, knowing why they made certain choices makes you a better developer who can work with the framework instead of just throwing code at it.RetryClaude can make mistakes. Please double-check responses.
 
-### Approach 2: Response Factory
+### Approach 2
 
-Now, if you did not know, PSR-17 defines standard factory interfaces for creating HTTP responses - ResponseFactoryInterface and StreamFactoryInterface. Laminas Diactoros implements these interfaces, which means we could use these standardized factories in our controllers instead of directly creating response objects (i.e. `new HtmlResponse()`). Our container can inject the Laminas implementations when these interfaces are requested.
-
-Go refactor your HomeController.php:
-
-```php
-
-```
+### Approach 3
 
 ## HTTP Requests and Responses
 
