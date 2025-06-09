@@ -543,7 +543,7 @@ class PageController
         $markdownFile = __DIR__ . '/../../content/' . $slug . '.md';
 
         if (!file_exists($markdownFile)) {
-            return new HtmlResponse($this->view->render('404'));
+            return new HtmlResponse($this->view->render('404'), 404);
         }
 
         $page = $this->markdown->parse(file_get_contents($markdownFile));
@@ -574,6 +574,47 @@ class PageController
 </article>
 
 {% endblock %}
+
+<!-- templates/twig/404.twig -->
+{% raw %}
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <title>404 Not Found</title>
+  <style>
+   body {
+    font-family: sans-serif;
+    text-align: center;
+    padding: 50px;
+    background: #f8f9fa;
+   }
+   h1 {
+    font-size: 60px;
+    margin-bottom: 10px;
+    color: #dc3545;
+   }
+   p {
+    font-size: 20px;
+    color: #6c757d;
+   }
+   a {
+    display: inline-block;
+    margin-top: 20px;
+    text-decoration: none;
+    color: #007bff;
+   }
+   a:hover {
+    text-decoration: underline;
+   }
+  </style>
+ </head>
+ <body>
+  <h1>404</h1>
+  <p>Page Not Found</p>
+  <a href="/">Go back to homepage</a>
+ </body>
+</html>
 {% endraw %}
 ```
 
@@ -688,3 +729,204 @@ While this much is enough to get job done, there is a minor problem. Let us assu
 So, what is a better approach to resolve such an issue? Of course... you are on the right track - we create a new PageFetcher service class to fetch pages. That way, we can use the same service in both current controller and API controllers if we ever needed to.
 
 Let's do that.
+
+```php
+// src/Service/PageFetcher.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Library\Config\ConfigInterface;
+use App\Service\Markdown\MarkdownParserInterface;
+
+class PageFetcher
+{
+
+    private string $markdownPath;
+
+    public function __construct(
+        private ConfigInterface $config,
+        private MarkdownParserInterface $markdown
+    ) {
+        $this->markdownPath = $config->get('markdown.content_dir'); // prevent hardcoding path
+    }
+
+    public function fetchAll(): array
+    {
+        $files = glob($this->markdownPath . '*.md');
+
+        $data = [];
+        foreach ($files as $file) {
+            $slug = basename($file, '.md');
+            $page = $this->markdown->parse(file_get_contents($file));
+            $data[] = [
+                'title' => $page['title'],
+                'description' => $page['description'],
+                'slug' => $slug
+            ];
+        }
+
+        return $data;
+    }
+
+    public function fetchSingle(string $pageName): array
+    {
+        $path = $this->markdownPath . $pageName . '.md';
+
+        if (!file_exists($path)) {
+            return [];
+        }
+
+        return $this->markdown->parse(file_get_contents($path));
+    }
+
+}
+```
+
+Ok... so what did we do in the PageFetcher service?
+
+- First thing we did was to define the path to the content dir so that we can make use of it. Note that I did not hardcode the path as we have a working configuration system via DI that we can use to fetch path to content dir via the config file.
+- Then, we made the class declare that it relies on two classes that implement the declared interfaces: ConfigInterface and MarkdownParserInterface. Once again I will repeat: the PageFetcher service does not know which class DI will pass to it, nor does it care. It simply relies on the methods defined in relevant interfaces to work.
+- In the constructor, we used ConfigInterface to fetch the path to the content dir.
+- We defined two methods: fetchAll() and fetchSingle(). fetchAll() will return an array of all pages and fetchSingle() will return an array of a single parsed page.
+- I will not be explaining the contents of each methods since I already did that when we used the same code in controllers.
+
+Don't forget to set the content_dir in config/markdown.php as well.
+
+```php
+// config/markdown.php
+<?php
+
+use League\CommonMark\Extension\Attributes\AttributesExtension;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
+use League\CommonMark\Extension\DisallowedRawHtml\DisallowedRawHtmlExtension;
+
+return [
+    'content_dir' => __DIR__ . '/../content', // <-- add this in config
+    'config' => [..],
+    // ...
+];
+```
+
+I wanted to skip telling you about the part below so that when you get an error in app you could figure the issue and fix it on your own. But then I decided to cover it since it is a bit diff from how we defined services earlier to this point.
+
+Make the following changes to `config/dependencies.php`.
+
+```php
+// config/dependencies.php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use App\Service\Markdown\LeagueMarkdownParser;
+use App\Service\Markdown\MarkdownParserInterface;
+use App\Service\PageFetcher;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class,
+
+    MarkdownParserInterface::class => LeagueMarkdownParser::class,
+
+    PageFetcher::class => PageFetcher::class,
+];
+```
+
+Noticed something? Up until now we have defined interfaces and told the DI that if a class requests that particular interface, give them the defined concrete class. But in case of PageFetcher class, we did not define any interface. Hence told the DI that if some class wants PageFetcher, give them the PageFetcher class. Our DI setup in frontcontroller expects "alias" => "value" format. See:
+
+```php
+# register services
+$dependencies = require_once __DIR__ . '/../config/dependencies.php';
+foreach ($dependencies as $key => $value) {
+    $container->alias($key, $value);
+}
+```
+
+However, even though this setup works, let's make it more efficient...
+
+Now that this is clear, edit the controllers to make use of the PageFetcher service.
+
+```php
+// src/Controller/HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\PageFetcher;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private RendererInterface $view
+    ) {
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+
+        $pages = $this->pageFetcher->fetchAll();
+
+        return new HtmlResponse($this->view->render('home/index', [
+            'title' => 'This is a title for Homepage!',
+            'pages' => $pages
+        ]));
+    }
+}
+
+// src/Controller/PageController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\View\RendererInterface;
+use App\Service\Markdown\MarkdownParserInterface;
+use App\Service\PageFetcher;
+use Laminas\Diactoros\Response\HtmlResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+class PageController
+{
+
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private RendererInterface $view
+    ) {
+    }
+
+    public function show(ServerRequestInterface $request): ResponseInterface
+    {
+        $slug = $request->getAttribute('slug');
+
+        $page = $this->pageFetcher->fetchSingle($slug);
+
+        if (!$page) {
+            return new HtmlResponse($this->view->render('404'), 404);
+        }
+
+        return new HtmlResponse($this->view->render('page/show', [
+            'title' => $page['title'],
+            'description' => $page['description'],
+            'page' => $page
+        ]));
+    }
+}
+```
+
+And... that's it. You have a working application now. Go check. I am not going to explain what changed in controllers because you can easily figure it out (I believe in you; I am not being lazy or anything, I can easily cover a few points covering the changes given I have already written an extensive tutorial. You need to learn HOW TO THINK before you learn HOW TO CODE A FEATURE IN PHP. That's what I have been trying to teach you through this tutorial. Hope it pays off!)
+
+In the next chapter, I will cover one last thing before the wrapup... [responses](./11-responses.md).
