@@ -1,11 +1,11 @@
 ---
 previous: 10-markdown
-next: 12-wrapup
+next: 12-requests-responses
 ---
 
-# HTTP Requests, Responses and Middlewares
+# Fixing Response Coupling in Controllers
 
-This will probably be the last chapter in our basic tutorial. I intend to cover one inconsistency between my teaching and what we have been doing up until now in controllers and also teach you a bit about HTTP responses (and requests). I will also use this chapter to cover middlewares briefly.
+In this chapter I intend to cover one inconsistency between my teaching and what we have been doing up until now in controllers.
 
 Go take a look at any controller, say HomeController.
 
@@ -50,15 +50,9 @@ This is breaking our own rules. We're tightly coupling our controller to a speci
 
 Now, **from a purely practical standpoint, you might never need to replace Laminas Diactoros - it's mature, stable, and PSR-7 compliant. So using HtmlResponse directly won't hurt you in most real applications.**
 
-So technically, there is no need to ever replace laminas diactoros with any other package . It is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, you can skip this section and move on to the section where I have covered HTTP Requests and HTTP responses and Middlewares. However, you can continue reading if you want to know more about this.
+So technically, there is no need to ever replace laminas diactoros with any other package . It is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, you can skip this chapter and move on to the next chapter where I have covered HTTP Requests and HTTP responses and Middlewares. However, you can continue reading if you want to know more about this.
 
-## Making Controllers Consistent With Our Approach (OPTIONAL)
-
-This section is entirely optional and feel free to skip to the next section instead if you want.
-
-This is probably the only chapter in the whole tutorial that is structured with proper subheadings, otherwise I have kept the flow natural everywhere else. This is because I am teaching here three different approaches you can take to solve the inconsistency in controllers and our codebase.
-
-### Approach 1: AbstractController
+## Approach 1: AbstractController
 
 This is probably the easiest way to solve the inconsistency, and is seen in Symfony Framework.
 
@@ -151,7 +145,7 @@ Well, to be frank, in this tutorial we are doing neither. We are learning princi
 
 Just know that even if you use Laravel tomorrow, knowing why they made certain choices makes you a better developer who can work with the framework instead of just throwing code at it.RetryClaude can make mistakes. Please double-check responses.
 
-### Approach 2: Our Own Response Interfaces
+## Approach 2: Our Own Response Interfaces
 
 This is slightly better than the first approach. Let's see how.
 
@@ -294,7 +288,7 @@ class HomeController
 
 You can use this CustomResponse approach if you like it or use AbstractController. Or, the third one below.
 
-### Approach 3: Response Factory
+## Approach 3: Response Factory
 
 Now, if you did not know, PSR-17 defines standard factory interfaces for creating HTTP responses - ResponseFactoryInterface and StreamFactoryInterface. Laminas Diactoros implements these interfaces, which means we could use these standardized factories in our controllers instead of directly creating response objects (i.e. `new HtmlResponse()`). Our container can inject the Laminas implementations when these interfaces are requested.
 
@@ -665,10 +659,4 @@ That's it. That's how we can use ResponseFactoryInterface and StreamFactoryInter
 
 Now, we can refactor our controllers for better error handling and separation, but I will leave all that for the advacned tutorial.
 
-## HTTP Requests and Responses
-
-### Requests
-
-### Responses
-
-### Middlewares
+[Next: HTTP Requests and HTTP responses and Middlewares](./12-requests-responses.md)
