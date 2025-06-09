@@ -147,7 +147,150 @@ Well, to be frank, in this tutorial we are doing neither. We are learning princi
 
 Just know that even if you use Laravel tomorrow, knowing why they made certain choices makes you a better developer who can work with the framework instead of just throwing code at it.RetryClaude can make mistakes. Please double-check responses.
 
-### Approach 2: Response Factory
+### Approach 2: Our Own Response Interfaces
+
+This is slightly better than the first approach. Let's see how.
+
+Create a new file `./src/Library/Http/CustomResponseInterface.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library\Http;
+
+use Psr\Http\Message\ResponseInterface;
+
+interface CustomResponseInterface 
+{
+
+    public function html(string $html, int $status = 200, array $headers = []): ResponseInterface;
+
+    public function json(array $data, int $status = 200, array $headers = []): ResponseInterface;
+
+    public function redirect(string $url, int $status = 302, array $headers = []): ResponseInterface;
+
+    public function xml(string $xml, int $status = 200, array $headers = []): ResponseInterface;
+
+}
+```
+
+This response interface defines four methods that other classes using it must implement for four diff content types (html, json, redirect, xml). We can then create a class that implements this interface and inject it into our controllers.
+
+Create `src/Library/Http/CustomResponse.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Library\Http;
+
+use Laminas\Diactoros\Response\HtmlResponse;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\Response\XmlResponse;
+use Psr\Http\Message\ResponseInterface;
+
+class CustomResponse implements CustomResponseInterface
+{
+
+    public function html(string $html, int $status = 200, array $headers = []): ResponseInterface
+    {
+        return new HtmlResponse($html, $status, $headers);
+    }
+
+    public function json(array $data, int $status = 200, array $headers = []): ResponseInterface
+    {
+        return new JsonResponse($data, $status, $headers);
+    }
+
+    public function redirect(string $url, int $status = 302, array $headers = []): ResponseInterface
+    {
+        return new RedirectResponse($url, $status, $headers);
+    }
+
+    public function xml(string $xml, int $status = 200, array $headers = []): ResponseInterface
+    {
+        return new XmlResponse($xml, $status, $headers);
+    }
+
+}
+```
+
+Nothing special going on here, we are just doing what we have been doing so far: create an interface, make a class implement it and use an existing library (here, laminas diactoros) to create the responses. Now we can use this library in our controllers after we inject it into the container.
+
+```php
+// config/dependencies.php
+<?php
+
+use App\Library\Config\ConfigInterface;
+use App\Library\Config\PHPConfigFetcher;
+use App\Library\Http\CustomResponse;
+use App\Library\Http\CustomResponseInterface;
+use App\Library\View\RendererInterface;
+use App\Library\View\TwigRenderer;
+use App\Service\Markdown\LeagueMarkdownParser;
+use App\Service\Markdown\MarkdownParserInterface;
+use App\Service\PageFetcher;
+
+return [
+    RendererInterface::class => TwigRenderer::class,
+    // or RendererInterface::class => \App\Library\View\PlatesRenderer::class
+
+    ConfigInterface::class => PHPConfigFetcher::class,
+
+    MarkdownParserInterface::class => LeagueMarkdownParser::class,
+
+    PageFetcher::class => PageFetcher::class,
+
+    CustomResponseInterface::class => CustomResponse::class
+];
+```
+
+Now, let's modify HomeController (and other controllers if you want).
+
+```php
+// src/Controller/HomeController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Library\Http\CustomResponseInterface;
+use App\Library\View\RendererInterface;
+use App\Service\PageFetcher;
+use Psr\Http\Message\ServerRequestInterface;
+
+class HomeController
+{
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private RendererInterface $view,
+        private CustomResponseInterface $response,
+    ) {
+    }
+
+    public function index(ServerRequestInterface $request)
+    {
+        $pages = $this->pageFetcher->fetchAll();
+
+        // separated this view part for better clarity
+        $html = $this->view->render('home/index', [
+            'title' => 'This is a title for Homepage!',
+            'pages' => $pages
+        ]);
+
+        return $this->response->html($html);
+    }
+}
+```
+
+You can use this CustomResponse approach if you like it or use AbstractController. Or, the third one below.
+
+### Approach 3: Response Factory
 
 Now, if you did not know, PSR-17 defines standard factory interfaces for creating HTTP responses - ResponseFactoryInterface and StreamFactoryInterface. Laminas Diactoros implements these interfaces, which means we could use these standardized factories in our controllers instead of directly creating response objects (i.e. `new HtmlResponse()`). Our container can inject the Laminas implementations when these interfaces are requested.
 
@@ -323,6 +466,8 @@ class HomeController
 
 use App\Library\Config\ConfigInterface;
 use App\Library\Config\PHPConfigFetcher;
+use App\Library\Http\CustomResponse;
+use App\Library\Http\CustomResponseInterface;
 use App\Library\View\RendererInterface;
 use App\Library\View\TwigRenderer;
 use App\Service\Markdown\LeagueMarkdownParser;
@@ -340,13 +485,15 @@ return [
 
     PageFetcher::class => PageFetcher::class,
 
+    CustomResponseInterface::class => CustomResponse::class
+
     ResponseInterface::class => \Laminas\Diactoros\Response::class
 ];
 ```
 
-Go check the browser. You will see that "Hello World is present in the response body. It was not overwritten. What if something like this happens such that some other part of the codebase has written something into the body and one of our controllers has written something else alongside? The response will contain both. That's a problem. (Now don't forget to undo our HomeController and dependencies.php config file).
+Go check the browser. You will see that "Hello World is present in the response body. It was not overwritten. What if something like this happens such that some other part of the codebase has written something into the body and one of our controllers has written something else alongside? The response will contain both. That's a problem. (Now don't forget to undo our HomeController and dependencies.php config file). Ok, this Hello World issue does not represent the whole problem... but it atleast demonstrates the shared state problem: when we inject the same response instance across different parts of your application, we risk unintended data accumulation and interference.
 
-So, the real issues are: (a) the injected response might have existing data that interferes (b) we're using a single "response" to create many different responses, which defeats the purpose of injection (c) when you call `$this->response->withStatus(404)`, you're essentially using the response as a factory anyway
+So, the real issues are basically (a) the injected response might have existing data that interferes (b) we're using a single "response" to create many different responses, which defeats the purpose of injection (c) when you call `$this->response->withStatus(404)`, you're essentially using the response as a factory anyway
 
 Enough theory for now... go refactor your HomeController.php:
 
