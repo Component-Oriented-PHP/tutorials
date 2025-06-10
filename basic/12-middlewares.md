@@ -448,11 +448,88 @@ So, can you come up with a better approach? Well, how about we move the filters 
 
 ### Phase 2: Separating the Filters
 
-Create a new class `./src/Library/Filters.php`:
+Create a new class `./src/Service/Filters.php`:
 
 ```php
+<?php
 
-...
+declare(strict_types=1);
+
+namespace App\Service;
+
+use App\Library\Http\CustomResponseInterface;
+use Psr\Http\Message\ResponseInterface;
+
+class Filters
+{
+
+    public function __construct(private CustomResponseInterface $response)
+    {
+    }
+
+    public function runFilter(string $filter, $request): ?ResponseInterface
+    {
+        return match ($filter) {
+            'apiauth' => $this->apiFilter($request),
+            default => null,
+        };
+    }
+
+    private function apiFilter($request): ?ResponseInterface
+    {
+        // x-api-key is set
+        if (!$request->hasHeader('x-api-key')) {
+            return $this->response->json([
+                'success' => false,
+                'message' => 'Missing API key'
+            ], 401);
+        }
+
+        // x-api-key is valid
+        if ($request->getHeaderLine('x-api-key') !== getenv('API_KEY')) {
+            return $this->response->json([
+                'success' => false,
+                'message' => 'Invalid API key'
+            ], 401);
+        }
+
+        return null;
+    }
+}
+
+// public/index.php
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container, $path, $filter) {
+        if ($filter) {
+            $filterService = $container->make(\App\Service\Filters::class);
+            $filterResponse = $filterService->runFilter(filter: $filter, request: $request);
+            if ($filterResponse) {
+                return $filterResponse;
+            }
+        }
+
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+```
+
+Let me explain what we did here:
+
+- We created a new class Filters to handle the filters and separate the auth logic from front controller.
+- the class expected an implementation of CustomResponseInterface instance as a dependency to generate responses.
+- the method `runFilter()` takes the filter name (e.g. "apiauth") and the request object as parameter, both to be provided by the front controller.
+- the method `runFilter()` matches the filter name and runs the corresponding private method in the class.
+- the private method `apiFilter()` checks if the request has the x-api-key header and returns corresponding responses.
+- in the front controller, we check if a filter name is set in route config. If it is, we use DI to create a new instance of Filters class via DI (so that it can pass the CustomResponseInterface dependency) and call its `runFilter()` method.
+
+BUT my boy... you might have guessed what I am about to say... it has several issues:
+
+- a service class like Filters.php is not meant to return responses. It should be atmost used to check is auth is allowed but not return responses. Services should contain business logic, not HTTP response generation.
+- The Filter class is doing too many things. It is on one hand checking if a user is authorized to view the response and also returns the response on other hand.
+- Issues similar to phase 1 approach persist: we cannot modify the response after it has been returned by the controllers if we ever need to.
+
+So, what do we do next? Well... let's think about the primary concern here... services should not return responses. But what else can? Controllers... yes... but it should not be responsible for authenticating requests. What else can return response and check for authentication? Bingo! Remember the word "Middleware"? We are going to create a middleware that does the job.
 
 ### Phase 3
 
