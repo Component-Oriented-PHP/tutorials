@@ -16,8 +16,9 @@ I have brought major changes to the original tutorial, even adding a few new cha
 8. [Inversion of Control, Service Locator and Dependency Injection](./8-inversion-of-control.md)
 9. [Configuration and Helpers](./9-configuration.md)
 10. [Markdown Parsing and Dynamic Pages](./10-markdown.md)
-11. [HTTP Requests, Responses and Middlewares](./11-requests-responses.md)
-12. [Wrapup](./12-wrapup.md)
+11. [Fixing Response Coupling in Controllers](./11-controller-responses.md) (optional chapter)
+12. [Middlewares](./12-middlewares.md)
+13. [Wrapup](./13-wrapup.md)
 
 ## Scope of Application We Are Building in This Tutorial
 

@@ -1,6 +1,6 @@
 ---
 previous: 10-markdown
-next: 12-requests-responses
+next: 12-middlewares
 ---
 
 # Fixing Response Coupling in Controllers
@@ -659,4 +659,4 @@ That's it. That's how we can use ResponseFactoryInterface and StreamFactoryInter
 
 Now, we can refactor our controllers for better error handling and separation, but I will leave all that for the advacned tutorial.
 
-[Next: HTTP Requests and HTTP responses and Middlewares](./12-requests-responses.md)
+[Next: Middlewares](./12-middlewares.md)
