@@ -218,15 +218,15 @@ Request → Middleware 1 → Middleware 2 → Middleware 3 → Controller
 
 By using middlewares, we can technically stop a user from ever reaching our controller if they are not permitted to.
 
-Now think about it for a sec... what benefits do we get from such a beautiful approach as compared to our authenticate method type API authentication? Well, first of course, we can reduce code repetion by using the same middleware (e.g. ApiAuthMiddleware.php class) in multiple API controllers. We can reate any number of middlewares before a response is returned. We could limit how many requests a user can make (e.g. a rate limiter middleware). We could log every request (e.g. a logging middleware).
+Now think about it for a sec... what benefits do we get from such a beautiful approach as compared to our authenticate method type API authentication? Well, first of course, we can reduce code repetion by using the same middleware (e.g. ApiAuthMiddleware.php class) in multiple API controllers. We can create any number of middlewares before/after a response is returned. We could limit how many requests a user can make (e.g. a rate limiter middleware). We could log every request (e.g. a logging middleware).
 
-Each middleware can examine/modify the request before passing it along to the next middleware/controller, examine/modify the response after getting it back or stop the chain entirely by returning early. Note that middlewares can be run before or after a controller. So, technically, we can also modify the response returned by controller before it is sent to the users (see the example below).
+Each middleware can examine/modify the request before passing it along to the next middleware/controller, examine/modify the response after getting it back or stop the chain entirely by returning early. Note that middlewares can be run before or after a controller. So, technically, we can also modify the response returned by controller before it is sent to the users (see the diagram below).
 
 ```txt
 Request → Middleware A (before) → Middleware B (before) → Controller → Middleware B (after) → Middleware A (after) → Response
 ```
 
-Another benefit is that you can change the order some middlewares are run in. But it is important to note that the order of middlewares is important and can potentially affect how our application work. Example, you should always run auth middleware before the log middleware to ensure that you don't log an auth failure.
+Another benefit is that you can change the order some middlewares are run in. But it is important to note that the order of middlewares is important and can potentially affect how our application work. Example, you should always run auth middleware before the log middleware to ensure that you don't log an auth failure
 
 ## Implementing the Middlewares
 

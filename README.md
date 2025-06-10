@@ -16,17 +16,20 @@ In production, use established frameworks unless you have specific constraints (
 
 I use this approach in most of my personal projects and Symfony/CI4 for my business ones.
 
-There are two versions of the tutorial:
+There are three versions of the tutorial:
 
 (A) Basic one - for noobs (or everyone)
 
-(B) Advanced one - for experts/intermediate players or the ones who have been through the Basic one (this one is so heart-wrenching that three developers have already rage-quit and gone back to WordPress. You've been warned; just kidding, LOL).
+(B) Refactoring Tutorial - we will refactor a spaghetti code into a modern one
+
+(C) Advanced one - for experts/intermediate players or the ones who have been through the Basic one (this one is so heart-wrenching that three developers have already rage-quit and gone back to WordPress. You've been warned; just kidding, LOL).
 
 And one last thing... it is not an easy tutorial to follow if you are bad at PHP (doesn't matter if you're good at frameworks). People get so much into the framework ecosystem that they forget they are PHP devs, not framework devs. So, if you're not good at PHP, you would need to keep your eyes and mind open... because the tutorial is not easy (though I have made all possible attempts to keep it easy to follow; I remember having difficulty following Patrick's original tutorial, so I added this).
 
 Links to respective tutorials:
 
 - [Basic Tutorial](./basic/)
+- [Refactoring Tutorial](./refactoring/)
 - [Advanced Tutorial](./advanced/)
 
 So, go on, read the next chapter and comment/[discuss anything](https://github.com/orgs/Component-Oriented-PHP/discussions) once you're through the tutorial.
