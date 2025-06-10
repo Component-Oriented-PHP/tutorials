@@ -230,4 +230,6 @@ Another benefit is that you can change the order some middlewares are run in. Bu
 
 ## Implementing the Middlewares
 
+First, let's learn how to write a middleware in PHP using PSR standards
+
 [Next: Wrapup](./13-wrapup.md)

@@ -1,5 +1,5 @@
 ---
-previous: 11-responses
+previous: 12-middlewares
 ---
 
 # Wrapup
@@ -23,11 +23,11 @@ Up until this point, everything you went through was just a modern rewrite of Pa
 
 And this is all I wanted to teach you, how to approach PHP development without frameworks by using pre-existing packages on packagist/composer.
 
-But this isn't really the end, if you don't want it to. Because I have added an even advanced tutorial (Chk Chk, it's free don't worry; no paywalls 🤑) . This tutorial is far more advanced and heart wrenching if you are a beginner.
+But this isn't really the end, if you don't want it to. Because I have added two more tutorials (Chk Chk, both are free, don't worry; no paywalls 🤑) . The other two tutorials are far more advanced and heart wrenching if you are a beginner.
 
 *But leaving after having completed the basic tutorial is fine too. Go build something with what you've learned!*
 
-You can read the [advanced tutorial here](../advanced/README.md) if you feel like Tom Cruise on a Mission Impossible.
+You can read the [advanced tutorial here](../advanced/README.md) if you feel like Tom Cruise on a Mission Impossible. Or, go to [Refactoring Tutorial first](../refactoring/README.md).
 
 *Remember: The best way to solidify this knowledge is to build something. Start small, but start building.*
 
