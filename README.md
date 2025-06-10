@@ -24,9 +24,7 @@ Available tutorials under the repo:
 
 3. [Advanced Tutorial](./advanced/) - for experts/intermediate players or the ones who have been through the Basic one (this one is so heart-wrenching that three developers have already rage-quit and gone back to WordPress. You've been warned; just kidding, LOL).
 
-4. [Creating a static site generator](./static-site-generator/) - Creating a static site generator - a complete guide to build a static site generator by combining existing composer packages.
-
-5. More incoming...
+4. [Creating a static site generator](./static-site-generator/) - Creating a static site generator - a complete guide to build a CLI-powered static site generator by combining existing composer packages.
 
 And one last thing... it is not an easy tutorial to follow if you are bad at PHP (doesn't matter if you're good at frameworks). People get so much into the framework ecosystem that they forget they are PHP devs, not framework devs. So, if you're not good at PHP, you would need to keep your eyes and mind open... because the tutorial is not easy (though I have made all possible attempts to keep it easy to follow; I remember having difficulty following Patrick's original tutorial, so I added this).
 

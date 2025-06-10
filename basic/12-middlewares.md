@@ -88,9 +88,9 @@ return [
 ];
 ```
 
-Now, go and visit <http://localhost:8000/api/page> and <http://localhost:8000/api/page/about>. You should see the JSON API responses.
+Now, go and visit <http://localhost:8080/api/page> and <http://localhost:8080/api/page/about>. You should see the JSON API responses.
 
-I doubt I need to explain what's happening in the Api PageController since we have been through this multiple times. But breifly, we asked DI for a class implementing CustomResponseInterface. Then we fetched the data (single or all pages) and returned the response with `application/json` content type (JsonResponse sets that automatically).
+I doubt I need to explain what's happening in the Api PageController since we have been through this multiple times. But briefly, we asked DI for a class implementing CustomResponseInterface. Then we fetched the data (single or all pages) and returned the response with `application/json` content type (JsonResponse sets that automatically).
 
 But, as always, there is an issue with our simple API. It's not protected. What if we wanted only our apps or the apps having some secret to use the endpoints?
 
@@ -230,6 +230,232 @@ Another benefit is that you can change the order some middlewares are run in. Bu
 
 ## Implementing the Middlewares
 
-First, let's learn how to write a middleware in PHP using PSR standards
+First, let's begin by moving the API auth logic out of the controller.
+
+Where should we place the auth logic?
+
+- we can create a separate class to check for authentication? Hmmm... but a service/library is not supposed to return responses that our current authenticate method is doing. They are only supposed to tell us whether user is authenticated or not. So, that's (while possible) not the right approach. Moreover, even if we did use that, would we not need to make use of that class in multiple controllers/methods leading to duplication?
+- keep the logic in controllers only? As stated, code duplication...
+- move it to the location where we are directly instantiating controllers, checking for routes for granular control over responses? Maybe... and which place is that? Correct! The front controller (`public/index.php`)!
+
+### Phase 1: Front Controller
+
+Let's modify our `public/index.php` to support API auth and clean our Api PageController. Also, let's secure our secret by moving it to the .env file.
+
+```env
+APP_ENV=development
+API_KEY=1234567890
+```
+
+```php
+// public/index.php
+
+//map the route definitions
+$routes = $container->make(\App\Library\Config\ConfigInterface::class)->get('routes');
+foreach ($routes as $name => $route) {
+    $requestMethod = $route[0];
+    $path = $route[1];
+    $handler = explode('::', $route[2]);
+    $controller = $handler[0];
+    $method = $handler[1];
+
+    // we need to make use of DI container to pass the necessary services to controller for usage
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container) {
+        // api auth
+        if (str_contains($path, '/api')) {
+            // get response
+            $response = $container->make(\App\Library\Http\CustomResponseInterface::class);
+
+            // x-api-key is set
+            if (!$request->hasHeader('x-api-key')) {
+                return $response->json([
+                    'success' => false,
+                    'message' => 'Missing API key'
+                ], 401);
+            }
+
+            // x-api-key is valid
+            if ($request->getHeaderLine('x-api-key') !== '1234567890') {
+                return $response->json([
+                    'success' => false,
+                    'message' => 'Invalid API key'
+                ], 401);
+            }
+        }
+
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+}
+```
+
+But there is a minor issue. We do not want to keep editing the front controller in case we change the route from which APIs are served. Also, what if we only wanted a few API routes to be protected and others to be public? Why don't we make use of route config file instead? Let's see how.
+
+```php
+// config/routes.php
+<?php
+
+return [
+    // route name => [route method, route path, controller::method]
+    'home' => ['get', '/', '\App\Controller\HomeController::index'],
+    // 'about' => ['get', '/about', '\App\Controller\AboutController::index'],
+    'page' => ['get', '/{slug}', '\App\Controller\PageController::show'],
+
+    // all routes containing 'apiauth' will be protected and others will be public
+    'api.page' => ['get', '/api/page', '\App\Controller\Api\PageController::index'], // public
+    'api.page.show' => ['get', '/api/page/{slug}', '\App\Controller\Api\PageController::show', 'apiauth'], // protected
+];
+
+// public/index.php
+
+    $requestMethod = $route[0];
+    $path = $route[1];
+    $handler = explode('::', $route[2]);
+    $controller = $handler[0];
+    $method = $handler[1];
+    $filter = $route[3] ?? null; // <-- get the filter (if any)
+
+    // we need to make use of DI container to pass the necessary services to controller for usage
+    $map->$requestMethod($name, $path, function ($request) use ($controller, $method, $container, $path, $filter) { // <-- notice the change
+        // api auth
+        if ($filter === 'apiauth') { // <-- notice the change?
+            // get response
+            $response = $container->make(\App\Library\Http\CustomResponseInterface::class);
+
+            // x-api-key is set
+            if (!$request->hasHeader('x-api-key')) {
+                return $response->json([
+                    'success' => false,
+                    'message' => 'Missing API key'
+                ], 401);
+            }
+
+            // x-api-key is valid
+            if ($request->getHeaderLine('x-api-key') !== getenv('API_KEY')) {
+                return $response->json([
+                    'success' => false,
+                    'message' => 'Invalid API key'
+                ], 401);
+            }
+        }
+
+        // Here's the magic! The container automatically creates the controller
+        // and injects all its dependencies
+        $controllerInstance = $container->make($controller); // this is needed; we need to instantiate controller via DI
+        return $controllerInstance->$method($request);
+    });
+```
+
+Don't forget to remove auth from Api\PageController.
+
+```php
+// src/Controller/Api/PageController.php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller\Api;
+
+use App\Library\Http\CustomResponseInterface;
+use App\Service\PageFetcher;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+class PageController
+{
+    public function __construct(
+        private PageFetcher $pageFetcher,
+        private CustomResponseInterface $response
+    ) {
+    }
+
+    public function index(ServerRequestInterface $request): ResponseInterface
+    {
+        // This code will only run if authentication was successful
+        $pages = $this->pageFetcher->fetchAll();
+
+        // create a response
+        return $this->response->json([
+            'success' => true,
+            'data' => $pages
+        ]);
+    }
+
+    public function show(ServerRequestInterface $request): ResponseInterface
+    {
+        // This code will only run if authentication was successful
+        $slug = $request->getAttribute('slug');
+        $page = $this->pageFetcher->fetchSingle($slug);
+
+        if (!$page) {
+            return $this->response->json([
+                'success' => false,
+                'message' => 'Page not found'
+            ], 404);
+        }
+
+        // create a response
+        return $this->response->json([
+            'success' => true,
+            'data' => $page
+        ]);
+    }
+}
+```
+
+Now, go and visit <http://localhost:8080/api/page> and <http://localhost:8080/api/page/about> to see if individual page api route is protected while the index api route is public. You can use Postman to test if passing X-API-KEY works (I will cover postman when we develop APIs in Advanced Tutorial).
+
+Now that we have protected our APIs, I want you to go through the front controller code and let me know what issues you notice with our current approach. Got any? No? Slap yourself hard if you did not (pat your back if you did) and think again!
+
+Found it? Good... here are the key issues:
+
+- notice how bloated our route mapping has become. Even though it is not such a big issue and we can continue working with it, why not look for a better solution?
+- we are mixing routing logic with auth logic. Where is the separation of concerns?
+- what if we need to add more filters like CORS? Wouldn't the front controller get even more bloated than it already is?
+- this approach is not as good as the Middleware approach we talked about. Why? Well, we cannot modify the response after it has been sent by the controller if we ever need to.
+
+Take a look yourself:
+
+```php
+// illustrative code only; do not modify anything in your project
+
+// Before (clean):
+$map->get($name, $path, function ($request) use ($controller, $method, $container) {
+    $controllerInstance = $container->make($controller);
+    return $controllerInstance->$method($request);
+});
+
+// After (bloated):
+$map->get($name, $path, function ($request) use ($controller, $method, $container, $path, $filter) {
+    // Auth logic
+    if ($filter === 'apiauth') { /* 10+ lines */ }
+    
+    // CORS logic (hypothetical)
+    if ($filter === 'cors') { /* another 10+ lines */ }
+    
+    // Rate limiting (hypothetical)  
+    if ($filter === 'ratelimit') { /* another 10+ lines */ }
+    
+    // Finally, the actual controller call
+    $controllerInstance = $container->make($controller);
+    return $controllerInstance->$method($request);
+});
+```
+
+So, can you come up with a better approach? Well, how about we move the filters to a separate class of its own?
+
+### Phase 2: Separating the Filters
+
+Create a new class `./src/Library/Filters.php`:
+
+```php
+
+...
+
+### Phase 3
+
+...
 
 [Next: Wrapup](./13-wrapup.md)
