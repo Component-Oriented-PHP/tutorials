@@ -5,8 +5,6 @@ next: 12-middlewares
 
 # Fixing Response Coupling in Controllers
 
-In this chapter I intend to cover one inconsistency between my teaching and what we have been doing up until now in controllers.
-
 Go take a look at any controller, say HomeController.
 
 ```php
@@ -42,15 +40,19 @@ class HomeController
 }
 ```
 
-Now, if you have thoroughly gone through all previous chapters, especially DI, you may ask, why the heck are we using HtmlResponse directly? What if we are to replace `laminas/diactoros` with some other package? Wouldn't we need to replace all instances of HtmlResponse (or for that matter JsonResponse or RedirectResponse of Laminas Diactoros package)?
+Noticed an inconsistency between what we have learned and what we kept doing here?
 
-And, isn't that inconsistent with everything I've been teaching you so far, especially how controllers should not know what package they are using to get job done and those packages should be provided to the controllers from outside? Throughout this tutorial, we've been obsessing over abstractions and dependency injection. We inject RendererInterface instead of hardcoding a template engine. We use PageFetcher as a service instead of writing markdown logic in controllers. But here? We're directly instantiating HtmlResponse like it's nobody's business.
+In case you have thoroughly gone through all previous chapters, especially DI, you may ask, **why the heck are we using HtmlResponse directly?** What if we were to replace `laminas/diactoros` with some other package? Wouldn't we need to replace all instances of HtmlResponse (or for that matter JsonResponse or RedirectResponse from the Diactoros package)?
+
+Moreover, isn't that inconsistent with everything we have learned so far, especially how, for better separation, controllers should not know what package they are using to get job done and those packages should be provided to the controllers from outside?
+
+Throughout this tutorial, we've been obsessing over abstractions and dependency injection. We inject RendererInterface instead of hardcoding a template engine. We use PageFetcher as a service instead of writing markdown logic in controllers. But here? We're directly instantiating HtmlResponse like we don't really care.
 
 This is breaking our own rules. We're tightly coupling our controller to a specific HTTP library, which means our controllers highly depend on Laminas Diactoros package only. It just looks inconsistent with the rest of our codebase. If someone reads our code, they'll see beautiful abstractions everywhere and then... boom, `new HtmlResponse()` scattered around like we forgot what we were doing.
 
 Now, **from a purely practical standpoint, you might never need to replace Laminas Diactoros - it's mature, stable, and PSR-7 compliant. So using HtmlResponse directly won't hurt you in most real applications.**
 
-So technically, there is no need to ever replace laminas diactoros with any other package . It is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, you can skip this chapter and move on to the next chapter where I have covered HTTP Requests and HTTP responses and Middlewares. However, you can continue reading if you want to know more about this.
+So technically, there is no need to ever replace laminas diactoros with any other package . It is one of the most widely used and highly capable package out there written by some of the best PHP devs out there in the world. So from that perspective, you do not even need to think about replacing the package with an alternative and can continue using HtmlResponse directly. As such, **you can skip this chapter and move on to the next chapter where I have covered Middlewares**. However, _you can continue reading if you want to know more about this_.
 
 ## Approach 1: AbstractController
 
@@ -131,7 +133,7 @@ Here is the thing, by using an AbstractController we're forcing controllers into
 
 So, the other two approaches I discuss below are better, you can use the one you like.
 
-Now **you may ask (or may have asked in the templates chapter itself) are Laravel, CodeIgniter and Symfony devs idiots to use Base Controllers/Abstract Controllers? Why should we follow you and not them?**
+Before we go on, **you may ask (or may have asked in the templates chapter itself) are Laravel, CodeIgniter and Symfony devs idiots to use Base Controllers/Abstract Controllers? Why should we follow you and not them?**
 
 Look, these framework developers are some of the smartest people in the PHP world. They're not idiots - they're solving completely different problems than we are here.
 
@@ -286,13 +288,17 @@ class HomeController
 }
 ```
 
-You can use this CustomResponse approach if you like it or use AbstractController. Or, the third one below.
+I doubt any additional explanation is needed here, since we have been doing the same with templates renderer or markdown parser for the past few chapters. To ensure that we can easily swap diactoros package with some other http implementation, we created an interface first that defined the methods we need. Then we created a class that implements this interface using diactoros and injected it into our container. That's it.
+
+You can use this CustomResponse approach if you like it, or use AbstractController. Or, the third one below. Your call, it's your application.
 
 ## Approach 3: Response Factory
 
+This one is the most dense section since it is the most complicated one of the three.
+
 Now, if you did not know, PSR-17 defines standard factory interfaces for creating HTTP responses - ResponseFactoryInterface and StreamFactoryInterface. Laminas Diactoros implements these interfaces, which means we could use these standardized factories in our controllers instead of directly creating response objects (i.e. `new HtmlResponse()`). Our container can inject the Laminas implementations when these interfaces are requested.
 
-Before we get into coding, someone may ask, why can't we simply use `ResponseInterface` and make our container pass `\Laminas\Diactoros\Response` instead, and then use it to return responses? Well, theoretically we can do that but the simplest explanation (though it is more complex than this) I can give to avoid doing it is that `ResponseInterface` is not a service/library, but represents a Response object. On the other hand, the two factory interfaces are services. When we inject services via DI, we should be injecting things that do work for us (services), not data objects that represent state.
+Before we get into coding, someone may ask, why can't we simply use `ResponseInterface` and make our container pass `\Laminas\Diactoros\Response` instead, and then use it to return responses? Well, theoretically we can do that but the simplest explanation (though it is more complex than this) I can give is that `ResponseInterface` is not a service/library, but represents a Response object. On the other hand, the two factory interfaces are services. When we inject services via DI, we should be injecting things that do work for us (services), not data objects that represent state.
 
 - `ResponseInterface` = single, immutable response/data object that holds HTTP response information (with specific status, headers, and body)
 - `ResponseFactoryInterface`/`StreamFactoryInterface` = services that create response objects for us
@@ -309,9 +315,9 @@ public function __construct(ResponseInterface $response) {}
 public function __construct(ResponseFactoryInterface $responseFactory) {}
 ```
 
-The core issue though isn't whether ResponseInterface represents a "state" or "service" - it's that injecting a **single response instance** doesn't make sense when you need to create multiple different responses.
+However, the core issue here isn't whether ResponseInterface represents a "state/data" or "service" - it's that injecting a **single response instance** doesn't make sense when you need to create multiple different responses. Single Response Instance means that the ResponseInterface represents a single data object and not multiple ones that we may need in certain scenarios (examples below).
 
-What does "not being able to create multiple different responses" mean? Look at the below example:
+What does "multiple different responses" mean? Look at the example below:
 
 ```php
 // for example only
@@ -377,7 +383,7 @@ class UserController
 }
 ```
 
-You see the problem? **A single response instance can't handle all these different scenarios.** Why not? Because PSR-7 responses (here, ResponseInterface) are designed to be immutable, meaning methods like withStatus(), withHeader(), etc. don't modify the original response - they return a new instance entirely.
+You see the problem? **A single response instance can't handle all these different scenarios.** Why not? Because PSR-7 responses (here, ResponseInterface) are designed to be immutable, i.e. methods like withStatus(), withHeader(), etc. don't modify the original response - they return a *new instance entirely*.
 
 ```php
 // This is what actually happens:
@@ -657,6 +663,6 @@ $response = $this->responseFactory->createResponse(200)
 
 That's it. That's how we can use ResponseFactoryInterface and StreamFactoryInterface in our controllers for better separation.
 
-Now, we can refactor our controllers for better error handling and separation, but I will leave all that for the advacned tutorial.
+Now, we could also refactor our controllers for better error handling and separation, but I will leave all that for the advacned tutorial.
 
 [Next: Middlewares](./12-middlewares.md)
