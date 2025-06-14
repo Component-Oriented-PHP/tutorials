@@ -17,7 +17,7 @@ I have brought major changes to the original tutorial, even adding a few new cha
 9. [Configuration and Helpers](./9-configuration.md)
 10. [Markdown Parsing and Dynamic Pages](./10-markdown.md)
 11. [Fixing Response Coupling in Controllers](./11-controller-responses.md) (optional chapter)
-12. [Middlewares](./12-middlewares.md)
+12. [Middlewares](./12-middlewares.md): WORK IN PROGRESS
 13. [Wrapup](./13-wrapup.md)
 
 ## Scope of Application We Are Building in This Tutorial

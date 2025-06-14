@@ -528,11 +528,12 @@ BUT my boy... you might have guessed what I am about to say... it has several is
 - a service class like Filters.php is not meant to return responses. It should be atmost used to check is auth is allowed but not return responses. Services should contain business logic, not HTTP response generation.
 - The Filter class is doing too many things. It is on one hand checking if a user is authorized to view the response and also returns the response on other hand.
 - Issues similar to phase 1 approach persist: we cannot modify the response after it has been returned by the controllers if we ever need to.
+- look how we are deciding which filter to use on which route.
 
 So, what do we do next? Well... let's think about the primary concern here... services should not return responses. But what else can? Controllers... yes... but it should not be responsible for authenticating requests. What else can return response and check for authentication? Bingo! Remember the word "Middleware"? We are going to create a middleware that does the job.
 
 ### Phase 3
 
-...
+... WORK IN PROGRESS
 
 [Next: Wrapup](./13-wrapup.md)
